@@ -9,6 +9,7 @@ dependencies:
   - pip
   - matplotlib
   - scikit-learn
+  - albumentations
   - pip:
     - --extra-index-url https://download.pytorch.org/whl/cu117 >/dev/null
     - torch==1.13.1
