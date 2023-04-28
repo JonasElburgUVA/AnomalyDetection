@@ -8,6 +8,7 @@ Original file is located at
 
 
 NOTE: .py version of original ipynb version, for easy train purposes.
+Comment parts out that you dont need.
 """
 
 import os
