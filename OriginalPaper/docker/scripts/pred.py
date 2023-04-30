@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import models
 
-img_extended = namedtuple('img_extended',('img','seg','k','t','coord','cid'))
+mri_sample = namedtuple('mri_sample',('img','seg','k','t','coord','cid','empty_mask'))
 
 def load_volume_abdom(source_file):
     
@@ -26,13 +26,16 @@ def load_volume_abdom(source_file):
         
         coord = np.linspace(-.5,.5,nimg_array.shape[0])[:, np.newaxis]
         
-        img_batch = img_extended(nimg_array,
-                                   np.zeros(32,dtype='uint8'),
-                                   np.zeros(32,dtype='uint8'),
-                                   np.zeros(32,dtype='uint8'),
-                                   coord,
-                                   np.zeros(32,dtype='uint8'),
-                                  )
+        # FIXME: This probably needs to be fixed
+        img_batch = mri_sample(
+            nimg_array,
+            np.zeros(32,dtype='uint8'),
+            np.zeros(32,dtype='uint8'),
+            np.zeros(32,dtype='uint8'),
+            coord,
+            np.zeros(32,dtype='uint8'),
+            None
+        )
         
         return img_batch, vol_s, nimg.affine
     
@@ -57,13 +60,16 @@ def load_volume_brain(source_file):
         
         coord = np.linspace(-.5,.5,32)[:, np.newaxis]
         
-        img_batch = img_extended(nimg_array,
-                                   np.zeros(32,dtype='uint8'),
-                                   np.zeros(32,dtype='uint8'),
-                                   np.zeros(32,dtype='uint8'),
-                                   coord,
-                                   np.zeros(32,dtype='uint8'),
-                                  )
+        # FIXME: This may need to be updated
+        img_batch = mri_sample(
+            nimg_array,
+            np.zeros(32,dtype='uint8'),
+            np.zeros(32,dtype='uint8'),
+            np.zeros(32,dtype='uint8'),
+            coord,
+            np.zeros(32,dtype='uint8'),
+            None
+        )
         
         return img_batch, vol_s, nimg.affine
 

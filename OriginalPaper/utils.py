@@ -100,7 +100,7 @@ def load_cid(cid,path):
     return vol, seg, spacing
 
 
-img_extended = namedtuple('img_extended',('img','seg','k','t','coord','cid'))
+mri_sample = namedtuple('mri_sample',('img','seg','k','t','coord','cid','empty_mask'))
 
 def get_full_case_id(cid):
     try:
