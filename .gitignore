@@ -160,3 +160,6 @@ load_data.py
 OriginalPaper/brain_data/*
 OriginalPaper/preprocessed_data/*
 OriginalPaper/.vscode/*
+playground/*
+fast_brain_data/*
+preprocessed-h5.tar.gz

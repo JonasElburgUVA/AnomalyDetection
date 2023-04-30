@@ -1,4 +1,5 @@
 import os
+import h5py
 import glob
 import numpy as np
 import random
@@ -49,25 +50,29 @@ class img_dataset(Dataset):
 
     def __getitem__(self, item):
         file_name = os.path.join(self.data_dir,self.set[item])
-        sample = pickle.load(open(file_name, 'rb'))
+
+        # Fast numpy-array loading
+        with h5py.File(file_name, "r") as sample_file:
+            if self.sample:
+                # FIXME: This assumes that self.sample_anomaly is always None
+                valid_slices = sample_file["valid_slices"][:].tolist()
+
+                # NOTE: this used to be random.choice, we use sample to avoid repetitions
+                sample_idx = np.array(random.sample(valid_slices, k=self.sample_number))
+                sample_idx = np.sort(sample_idx.astype("uint8"))
+
+                img = sample_file["img"][sample_idx].astype(np.float32)
+            else:
+                img = sample_file["img"][:]
 
         if self.sample:
-            # FIXME: This assumes that self.sample_anomaly is always None
-            sample_idx = np.array(random.choices(sample.valid_slices, k=self.sample_number))
-
-            img = sample.img[sample_idx].astype(np.float32)
-
             # Position of the slice within the volume, encoded in a variable in the range [-0.5,0.5].
             coord = sample_idx[:, np.newaxis] / self.total_slices
             coord = coord - 0.5
 
-            img_batch = utils.mri_sample(
-                img,
-                coord,
-                np.zeros(0)
-            )
+            img_batch = utils.mri_sample(img, coord, np.zeros(0))
         else: # If no ssampling is required, just reverse the order: list of img_ext to img_ext of arrays
-            img_batch = utils.mri_sample(*map(np.array, zip(*[sample])))
+            img_batch = utils.mri_sample(img, np.zeros(0), np.zeros(0))
 
         if self.transform_shape is not None:
             img_batch = utils.mri_sample(
