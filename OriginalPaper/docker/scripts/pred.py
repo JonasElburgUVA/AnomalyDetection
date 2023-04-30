@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import models
 
-mri_sample = namedtuple('mri_sample',('img','seg','k','t','coord','cid','empty_mask'))
+mri_sample = namedtuple("mri_sample", ("img", "coord", "valid_slices"))
 
 def load_volume_abdom(source_file):
     
@@ -29,11 +29,7 @@ def load_volume_abdom(source_file):
         # FIXME: This probably needs to be fixed
         img_batch = mri_sample(
             nimg_array,
-            np.zeros(32,dtype='uint8'),
-            np.zeros(32,dtype='uint8'),
-            np.zeros(32,dtype='uint8'),
             coord,
-            np.zeros(32,dtype='uint8'),
             None
         )
         
@@ -63,11 +59,7 @@ def load_volume_brain(source_file):
         # FIXME: This may need to be updated
         img_batch = mri_sample(
             nimg_array,
-            np.zeros(32,dtype='uint8'),
-            np.zeros(32,dtype='uint8'),
-            np.zeros(32,dtype='uint8'),
             coord,
-            np.zeros(32,dtype='uint8'),
             None
         )
         

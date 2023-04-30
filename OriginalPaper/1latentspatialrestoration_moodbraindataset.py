@@ -184,14 +184,7 @@ def load_volume_brain(source_file, slices = 32):
         coord = np.linspace(-.5,.5,slices)[:, np.newaxis]
         
         # FIXME: This may need to be updated
-        img_batch = mri_sample(nimg_array,
-                                   np.zeros(slices,dtype='uint8'),
-                                   np.zeros(slices,dtype='uint8'),
-                                   np.zeros(slices,dtype='uint8'),
-                                   coord,
-                                   np.zeros(slices,dtype='uint8'),
-                                   None
-                                  )
+        img_batch = mri_sample(nimg_array, coord, None)
         
         return img_batch, vol_s, nimg.affine
 

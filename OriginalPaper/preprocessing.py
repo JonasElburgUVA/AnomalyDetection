@@ -53,8 +53,7 @@ class img_dataset(Dataset):
 
         if self.sample:
             # FIXME: This assumes that self.sample_anomaly is always None
-            choices = np.arange(len(sample.empty_mask))[sample.empty_mask]
-            sample_idx = np.array(random.choices(choices, k=self.sample_number))
+            sample_idx = np.array(random.choices(sample.valid_slices, k=self.sample_number))
 
             img = sample.img[sample_idx].astype(np.float32)
 
@@ -64,11 +63,7 @@ class img_dataset(Dataset):
 
             img_batch = utils.mri_sample(
                 img,
-                np.zeros(0),
-                np.zeros(0),
-                np.zeros(0),
                 coord,
-                np.array([sample.cid] * self.sample_number),
                 np.zeros(0)
             )
         else: # If no ssampling is required, just reverse the order: list of img_ext to img_ext of arrays
@@ -77,12 +72,8 @@ class img_dataset(Dataset):
         if self.transform_shape is not None:
             img_batch = utils.mri_sample(
                 np.stack([self.transform_shape(image=img)["image"] for img in img_batch.img]),
-                img_batch.seg,
-                img_batch.k,
-                img_batch.t,
                 img_batch.coord,
-                img_batch.cid,
-                img_batch.empty_mask
+                img_batch.valid_slices
             )
 
         if self.transform_color is not None:
@@ -96,12 +87,8 @@ class img_dataset(Dataset):
 
             img_batch = utils.mri_sample(
                 img_aug,
-                img_batch.seg,
-                img_batch.k,
-                img_batch.t,
                 img_batch.coord,
-                img_batch.cid,
-                img_batch.empty_mask
+                img_batch.valid_slices
             )
 
         return img_batch
@@ -113,7 +100,6 @@ def collate_fn(batches):
 
 class brain_dataset(img_dataset):
     def __init__(self, data_dir, train = True,  **kwargs):
-
         if train:
             transform_shape = A.Compose([
                 A.ElasticTransform(alpha=2, sigma=5, alpha_affine=5),
