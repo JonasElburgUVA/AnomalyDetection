@@ -73,19 +73,19 @@ class train_tracker:
         plt.show()
 
 def train_epochs(model, optimizer,tracker, train_loader, test_loader, epochs, device, chpt = None):
-    # writer = SummaryWriter()
+    writer = SummaryWriter()
     for epoch in range(epochs):
         train_loss = train(model, train_loader, optimizer,device)
         test_loss = eval_loss(model, test_loader, device)
-        # writer.add_scalar("Loss/train", train_loss, epoch)
-        # writer.add_scalar("Loss/test", test_loss, epoch)
+        writer.add_scalar("Loss/train", train_loss, epoch)
+        writer.add_scalar("Loss/test", test_loss, epoch)
         tracker.append(train_loss,test_loss,optimizer.param_groups[0]['lr'])
     
         print('{} epochs, {:.3f} test loss, {:.3f} train loss'.format(len(tracker), test_loss, train_loss))
         if chpt is not None:
             save_checkpoint(model,optimizer,tracker,
                             'checkpoints/{}_{:03}.pt'.format(chpt,len(tracker)))
-    # writer.flush()
+    writer.flush()
 
 
 def load_cid(cid,path):
