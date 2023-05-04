@@ -18,3 +18,4 @@ dependencies:
     - nibabel
     - scikit-image
     - albumentations
+    - tensorboard
