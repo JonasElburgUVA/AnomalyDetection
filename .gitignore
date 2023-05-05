@@ -163,3 +163,7 @@ OriginalPaper/.vscode/*
 playground/*
 fast_brain_data/*
 preprocessed-h5.tar.gz
+brain_toy.zip
+output/*
+checkpoints/*
+brain_toy/*
