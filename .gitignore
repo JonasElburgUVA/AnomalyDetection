@@ -1,6 +1,7 @@
 #ds_store
 *.DS_Store
 data/
+job_logs/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
