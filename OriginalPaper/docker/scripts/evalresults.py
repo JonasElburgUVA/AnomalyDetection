@@ -9,14 +9,14 @@ import scipy.spatial.distance as distance
 
 def get_dsc(label, vol, t=0.35):
     # threshold t is a hyperparameter
-    TP = sum(vol[label==1] >= t)
-    FP = sum(vol[label==0] >= t)
-    FN = sum(vol[label==1] < t)
+    tp = sum(vol[label==1] >= t)
+    fp = sum(vol[label==0] >= t)
+    fn = sum(vol[label==1] < t)
 
-    DSC= 2 * TP / (2 * TP + FP + FN)
-    if DSC != DSC:
+    dsc= 2 * tp / (2 * tp + fp + fn)
+    if dsc != dsc:
         raise ValueError("NaN encountered in DSC calculation.")
-    return DSC
+    return dsc
 
 def eval_dir(output_dir, label_dir, mode):
     res = None
