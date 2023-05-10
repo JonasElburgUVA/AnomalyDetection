@@ -1,6 +1,7 @@
 #ds_store
 *.DS_Store
 data/
+job_logs/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -8,6 +9,8 @@ __pycache__/
 .ipynb_checkpoints
 # C extensions
 *.so
+
+OriginalPaper/wandb
 
 # Distribution / packaging
 .Python
