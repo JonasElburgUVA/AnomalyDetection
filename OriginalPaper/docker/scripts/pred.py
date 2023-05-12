@@ -14,7 +14,6 @@ import models
 mri_sample = namedtuple("mri_sample", ("img", "coord", "valid_slices"))
 
 def load_volume_abdom(source_file):
-    
         nimg = nib.load(source_file)
         nimg_array = nimg.get_fdata()
         vol_s = nimg_array.shape
@@ -151,8 +150,8 @@ if __name__ == "__main__":
     elif dataset == "brain":
         parameters = {"threshold_sample": 7,
                      "threshold_pixel_correct": 5,
-                     "checkpoint_features":'/workspace/checkpoints/brain_feats.pt',
-                     "checkpoint_latent": '/workspace/checkpoints/brain_la.pt',
+                     "checkpoint_features":'./checkpoints/brain_vqvae.pt',
+                     "checkpoint_latent": './checkpoints/brain_prior.pt',
                      "load_function":load_volume_brain,
                      "vq_net":{"d":1,"n_channels":(16,32,64,256),"code_size":128,"n_res_block":2,"cond_channels":1, 
                           "categorical":False, "reconstruction_loss":F.l1_loss},
@@ -169,16 +168,16 @@ if __name__ == "__main__":
     feat_ext_mdl = models.VQVAE(**parameters["vq_net"])
     feat_ext_mdl.to(device).eval()
     
-    chpt = torch.load(parameters["checkpoint_features"])
-    feat_ext_mdl.load_state_dict(chpt)
+    chpt = torch.load(parameters["checkpoint_features"], map_location=device)
+    feat_ext_mdl.load_state_dict(chpt["model"])
 
     
     # INITIALIZE LATENT MODEL
     model = models.VQLatentSNAIL(feature_extractor_model=feat_ext_mdl,**parameters["ar_net"])
     model.to(device).eval()
     
-    chpt = torch.load(parameters["checkpoint_latent"])
-    model.load_state_dict(chpt)
+    chpt = torch.load(parameters["checkpoint_latent"], map_location=device)
+    model.load_state_dict(chpt["model"])
         
     
     # ITERATE THROUGH FILES IN FOLDER
