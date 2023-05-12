@@ -10,7 +10,7 @@ __pycache__/
 # C extensions
 *.so
 
-OriginalPaper/wandb
+src/OriginalPaper/wandb
 
 # Distribution / packaging
 .Python
