@@ -41,7 +41,7 @@ $$
 
 To ensure expressiveness and flexibility of the discrete latent space, the entries of the codebook are learned during training. This means that, aside from the regular VAE loss, another term is added to the learning objective. This “codebook loss”, derived from the average distance between the encoder output and the nearest vector in the codebook, enables us to learn a distribution over discrete vectors in the latent space. Finally, a penalty is introduced for very large valued encoder outputs, to ensure the latent space does not grow unnecessarily. This is called “commitment loss”, and corresponds to the third term in the equation below. The full learning objective is then given by the following equation:
 
-![](static/loss_straight.png)
+![](static/vqvaeloss.png)
 
 
 ![](static/model_overview.png)
