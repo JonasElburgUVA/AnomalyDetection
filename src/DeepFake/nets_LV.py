@@ -6,6 +6,7 @@ import nn_blocks
 
 from nets_AR import PixelSNAIL
 from collections import OrderedDict
+from torchmetrics import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 
 
 class VQVAE(nn.Module):
@@ -22,6 +23,8 @@ class VQVAE(nn.Module):
         super().__init__()
 
         self.d = d
+        self.psnr = PeakSignalNoiseRatio()
+        self.ssim = StructuralSimilarityIndexMeasure()
         self.code_size = code_size
         self.reconstruction_loss = reconstruction_loss
 
@@ -118,7 +121,13 @@ class VQVAE(nn.Module):
         elif reduction == "none":
             loss = torch.mean(recon_loss) + diff
 
-        return OrderedDict(loss=loss, recon_loss=recon_loss, reg_loss=diff)
+        return OrderedDict(
+            loss=loss,
+            recon_loss=recon_loss,
+            reg_loss=diff,
+            psnr=self.psnr(x_tilde, x),
+            ssim=self.ssim(x_tilde.cpu(), x.cpu())
+        )
 
 
 class VQLatentSNAIL(PixelSNAIL):

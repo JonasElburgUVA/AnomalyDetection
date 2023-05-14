@@ -14,6 +14,7 @@ def train(model, train_loader, optimizer, device):
 
     train_losses = []
     batch_sizes = []
+    train_ssim, train_psnr = [], []
 
     for img, _ in tqdm(train_loader):
         loss = model.loss(img.to(device))
@@ -21,15 +22,22 @@ def train(model, train_loader, optimizer, device):
         optimizer.zero_grad()
         loss["loss"].backward()
 
+        train_ssim.append(loss["ssim"].item() * img.shape[0])
+        train_psnr.append(loss["psnr"].item() * img.shape[0])
+        train_losses.append(loss["loss"].item() * img.shape[0])
+
         # Gradient clippling
         torch.nn.utils.clip_grad_value_(model.parameters(), 1.)
 
         optimizer.step()
 
-        train_losses.append(loss["loss"].item() * img.shape[0])
         batch_sizes.append(img.shape[0])
 
-    return sum(train_losses)/sum(batch_sizes)
+    train_loss = sum(train_losses) / sum(batch_sizes)
+    train_ssim = sum(train_ssim) / sum(batch_sizes)
+    train_psnr = sum(train_psnr) / sum(batch_sizes)
+
+    return train_loss, train_ssim, train_psnr
 
 
 def eval_loss(model, data_loader, device):
@@ -37,14 +45,23 @@ def eval_loss(model, data_loader, device):
 
     eval_losses = []
     batch_sizes = []
+    val_ssim, val_psnr = [], []
 
     with torch.no_grad():
-        for img in data_loader:
+        for img, _ in data_loader:
             loss = model.loss(img.to(device))
+
+            val_ssim.append(loss["ssim"].item() * img.shape[0])
+            val_psnr.append(loss["psnr"].item() * img.shape[0])
             eval_losses.append(loss['loss'].item() * img.shape[0])
+
             batch_sizes.append(img.shape[0])
 
-    return sum(eval_losses)/sum(batch_sizes)
+    eval_loss = sum(eval_losses) / sum(batch_sizes)
+    val_ssim = sum(val_ssim) / sum(batch_sizes)
+    val_psnr = sum(val_psnr) / sum(batch_sizes)
+
+    return eval_loss, val_ssim, val_psnr
 
 
 def save_checkpoint(model, optimizer, tracker, file_name):
@@ -90,11 +107,17 @@ def train_epochs(model, optimizer, tracker, train_loader, test_loader, epochs, d
     print('Starting training')
 
     for epoch in range(epochs):
-        train_loss = train(model, train_loader, optimizer, device)
-        test_loss = eval_loss(model, test_loader, device)
+        train_loss, train_ssim, train_psnr = train(model, train_loader, optimizer, device)
+        test_loss, val_ssim, val_psnr = eval_loss(model, test_loader, device)
 
         wandb.log({'Loss/train': train_loss})
         wandb.log({'Loss/test': test_loss})
+
+        wandb.log({'Metrics/train_ssim': train_ssim})
+        wandb.log({'Metrics/train_psnr': train_psnr})
+
+        wandb.log({'Metrics/val_ssim': val_ssim})
+        wandb.log({'Metrics/val_psnr': val_psnr})
 
         tracker.append(train_loss, test_loss, optimizer.param_groups[0]['lr'])
 
