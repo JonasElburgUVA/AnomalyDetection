@@ -5,6 +5,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 
 from torchvision import transforms
+import torchvision.transforms.functional as tf
+
 from PIL import Image
 import random
 
@@ -122,23 +124,22 @@ class FaceForensicsDataset(Dataset):
             # if self.face_only:
             #     img = self.apply_mask(img, msk)
             #     origin = self.apply_mask(origin, msk)
-            img_batch.append(img)
-            origin_batch.append(origin)
-            mask_batch.append(msk)
+            if self.transform is not None:
+                # RandomHorizontalFlip
+                if random.random() > 0.5:
+                    img = tf.hflip(img)
+                    origin = tf.hflip(origin)
+                    msk = tf.hflip(msk)
 
-        if self.transform is not None:
-            # Random operations are not the same for each batch
-            img_batch = torch.cat(
-                [self.transform(img).unsqueeze(0) for img in img_batch]
-            )
-            origin_batch = torch.cat(
-                [self.transform(img).unsqueeze(0) for img in origin_batch]
-            )
-            mask_batch = torch.cat(
-                [self.transform(img).unsqueeze(0) for img in mask_batch]
-            )
+                img = self.transform(img)
+                origin = self.transform(origin)
+                msk = self.transform(msk)
 
-        return img_batch, origin_batch, mask_batch
+            img_batch.append(img.unsqueeze(0))
+            origin_batch.append(origin.unsqueeze(0))
+            mask_batch.append(msk.unsqueeze(0))
+
+        return torch.cat(img_batch), torch.cat(origin_batch), torch.cat(mask_batch)
 
     # def apply_mask(self, img, mask):
     #     """
@@ -152,19 +153,16 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import torchvision
 
-    seed = 40
+    seed = 42
     torch.manual_seed(seed)
     random.seed(seed)
 
+    # NOTE: Random transformation won't be consistent between outputs. So don't include them here
     transform = transforms.Compose(
         [
             transforms.Resize(
                 (126),
             ),  # resize the image to whatever
-            #
-            transforms.RandomHorizontalFlip(),
-            transforms.ColorJitter(),
-            # transforms.GaussianBlur((7, 7)),
         ]
     )
 
@@ -176,7 +174,7 @@ if __name__ == "__main__":
 
     out, src, mask = dataset[0]
     out, src, mask = out[0], src[0], mask[0]
-
+    print(out.shape, src.shape, mask.shape)
     # Create grid of images & turn mask in 3 channel image for visualization
     grid = torchvision.utils.make_grid(
         [out, src, mask.expand(3, -1, -1)],
