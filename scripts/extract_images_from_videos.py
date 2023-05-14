@@ -15,7 +15,7 @@ import argparse
 import subprocess
 import cv2
 from tqdm import tqdm
-
+import shutil
 
 DATASET_PATHS = {
     "original_youtube": "original_sequences/youtube",
@@ -53,7 +53,7 @@ def extract_frames(data_path, output_path, method="cv2"):
         raise Exception("Wrong extract frames method: {}".format(method))
 
 
-def extract_method_videos(data_path, dataset, compression, method):
+def extract_method_videos(data_path, dataset, compression, method, remove_videos):
     """Extracts all videos of a specified method and compression in the
     FaceForensics++ file structure"""
     videos_path = join(data_path, DATASET_PATHS[dataset], compression, "videos")
@@ -64,8 +64,11 @@ def extract_method_videos(data_path, dataset, compression, method):
             join(videos_path, video), join(images_path, image_folder), method
         )
 
+    if remove_videos:
+        shutil.rmtree(videos_path, ignore_errors=False, onerror=None)
 
-def extract_masks(data_path, dataset, method):
+
+def extract_masks(data_path, dataset, method, remove_videos=False):
     """Extracts all videos of a specified method and compression in the
     FaceForensics++ file structure"""
     videos_path = join(data_path, DATASET_PATHS[dataset], "masks", "videos")
@@ -75,6 +78,9 @@ def extract_masks(data_path, dataset, method):
         extract_frames(
             join(videos_path, video), join(images_path, image_folder), method
         )
+
+    if remove_videos:
+        shutil.rmtree(videos_path, ignore_errors=False, onerror=None)
 
 
 if __name__ == "__main__":
@@ -91,6 +97,7 @@ if __name__ == "__main__":
     p.add_argument(
         "--method", "-m", type=str, choices=["cv2", "ffmpeg"], default="ffmpeg"
     )
+    p.add_argument("--remove_videos", "-r", action=argparse.BooleanOptionalAction)
     args = p.parse_args()
 
     if args.dataset == "all":
@@ -103,6 +110,8 @@ if __name__ == "__main__":
 
     if args.dataset == "all" or args.dataset == "Deepfakes":
         print("Extracting Deepfakes masks")
-        extract_masks(args.data_path, "Deepfakes", args.method)
+        extract_masks(args.data_path, "Deepfakes", args.method, args.remove_videos)
         print("Extracting DeepFakeDetection masks")
-        extract_masks(args.data_path, "DeepFakeDetection", args.method)
+        extract_masks(
+            args.data_path, "DeepFakeDetection", args.method, args.remove_videos
+        )
