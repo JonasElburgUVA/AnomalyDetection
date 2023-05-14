@@ -3,17 +3,16 @@
 With rapid improvements in generative AI, it is becoming more difficult to distinguish real from generated data (e.g. deepfakes). Therefore, the need to recognize generated works became more critical. This problem can be posed as an anomaly detection task, with the goal of identifying artifacts that typically occur in modified or generated images but not in real ones. Marimont & Tarroni (2021) recently introduced an anomaly detection model yielding promising results in the field of medical imaging. In this blog post, we will investigate the performance of this model for the purpose of detecting generated and artificially altered images of faces, or *fakes<sup>1</sup>*. First, we will discuss the methodology used by Marimont & Tarroni (2021). Then we will explain how this method is applied to distinguishing modified/generated faces from real faces. Finally, we present the results of this method on various datasets and evaluate its robustness to different face manipulation techniques.
 
 > <sup>1</sup> We considered completely generated as well as partially altered images of people’s faces in this research. We will refer to all of these as fakes in this blog post for simplicity.
-
+ 
 ### Anomaly Detection through Latent Space Restoration using Vector Quantized Variational Auto-Encoders
 
 In response to the 2020 Medical Out of Distribution (MOOD) challenge, Marimont & Tarroni (2021) developed a novel method for detecting anomalies in image data. A Vector-Quantized Variational Auto-Encoder (VQ-VAE), as introduced by van den Oord et al. (2017), was trained on two datasets of medical images (brain and abdominal scans). The main difference between a VQ-VAE and a regular VAE is the latent space, made of a finite set of discrete vectors rather than being continuous. The technical details and (dis)-advantages of using VQ-VAEs will be discussed in Methods > VQ-VAE. The latent space of the VQ-VAE was regularized by a learned autoregressive prior using the PixelSNAIL architecture (Chen et al., 2018). This architecture allows the calculation of both sample and pixel-wise anomaly scores. Since the MOOD challenge test data is withheld, the model was evaluated using a small toy dataset with clear artificial anomalies (figure 1). On this toy dataset, the VQ-VAE outperformed a regular VAE model in detecting anomalies on the sample and pixel levels.
 
 <p
    style="text-align: center">
-    <img src="/uploads/upload_32234ee2e916356263b3ce2bcc30dc5e.png" height="250">
+    <img src="static/brain_anomaly.png" height="250">
     <center>Figure 1: Example of a slice containing an artificial anomaly.</center>
 </p>
-
 
 The method performed relatively well on the withheld test data, resulting in the second-best performance of the challenge (Zimmerer et al., 2020). However, it was noted that performance is especially high for obvious abnormal inputs (e.g., containing large hyperintense patches originating from a tumor), while performance on images with more subtle anomalies is much less stable, limiting the practical use of these models. The MRI brain scan dataset was obtained from healthy young individuals, meaning that the brains are quite uniform between subjects. The other dataset consisting of abdominal CT scans, however, was obtained from both healthy and unhealthy participants of varying age groups. Furthermore, more variance is expected since multiple organs are contained within the abdomen. Performance seems sensitive to this variance since the model performed much better on the MRI dataset than on the high-variance dataset containing healthy and unhealthy abdominal CT scans (Marimont \& Tarroni, 2021; Zimmerer et al., 2020). It is unclear whether this results from an inherent limitation of this model or whether this could be resolved with more data.
 
@@ -34,19 +33,18 @@ Our contribution can be split into three parts, since the results have implicati
 
 ### Vector-Quantized Auto-Encoder
 
-Vector Quantized Auto-Encoders (VQ-VAEs; Van den Oord et al., 2017), similarly to regular VAEs, consist of an encoder, a latent space, and a decoder. The encoder transforms input data into a lower dimensional latent representation, and the decoder transforms this latent representation back to its original dimensions. The defining trait of a VQ-VAE, is that a quantization module follows the encoder to make the latent space discrete. In this quantization, each initial output of the encoder is mapped to one of $K$ vectors that make up the latent space. These $K$ vectors and their $D$-dimensional entries are referred to as the codebook. The mapping is done by replacing each $D$-dimensional vector $z_e(x)$ in the encoder's output $Z(x)$, with the nearest vector in the codebook, $v_k$, based on a nearest neighbor search (see the equation below). This means that, with a $K \times D$ sized codebook, the encoder output before quantization should be of the shape $H \times W \times D$. The shape will be the same after quantization, but the entries of the $H \times W$ vectors will be replaced by the nearest codebook vectors. This quantized tensor, $Z_q(x)$, functions as the input to the decoder.
+Vector Quantized Auto-Encoders (VQ-VAEs; Van den Oord et al., 2017), similarly to regular VAEs, consist of an encoder, a latent space, and a decoder. The encoder transforms input data into a lower dimensional latent representation, and the decoder transforms this latent representation back to its original dimensions. The defining trait of a VQ-VAE, is that a quantization module follows the encoder to make the latent space discrete. In this quantization, each initial output of the encoder is mapped to one of $K$ vectors that make up the latent space. These $K$ vectors and their $D$-dimensional entries are referred to as the codebook. The mapping is done by replacing each $D$-dimensional vector in the encoder's output, $z_e(x)$, with the nearest vector in the codebook, $v_j$, based on a nearest neighbor search (see the equation below). This means that, with a $K \times D$ sized codebook, the encoder output before quantization should be of the shape $H \times W \times D$. The shape will be the same after quantization, but the entries of the $H \times W$ vectors will be replaced by the nearest codebook vectors. This quantized tensor, $z_q(x)$, functions as the input to the decoder.
 
 $$
-z_e(x) = v_k \text{ where } k = \text{argmin}_j || z_e(x) - v_j ||_2
+z_q(x) = v_k \text{ where } k = \text{argmin}_j || z_e(x) - v_j ||_2
 $$
 
 To ensure expressiveness and flexibility of the discrete latent space, the entries of the codebook are learned during training. This means that, aside from the regular VAE loss, another term is added to the learning objective. This “codebook loss”, derived from the average distance between the encoder output and the nearest vector in the codebook, enables us to learn a distribution over discrete vectors in the latent space. Finally, a penalty is introduced for very large valued encoder outputs, to ensure the latent space does not grow unnecessarily. This is called “commitment loss”, and corresponds to the third term in the equation below. The full learning objective is then given by the following equation:
- 
 
-![](/uploads/upload_6bd29791c51f4eb4dfcd4efc188b3dc7.png)
+![](static/vqvaeloss.png)
 
 
-![](/uploads/upload_006277838d72473a0906bc0ff2b3da28.png)
+![](static/model_overview.png)
 
 > The architecture of the VQ-VAE (van den Oord, et al. 2017). Note that currently we have swapped $e$ with $v$ in our calculations
 
@@ -54,7 +52,7 @@ To ensure expressiveness and flexibility of the discrete latent space, the entri
 
 Crucial for our purpose, a probabilistic distribution over the latent space is learned. This is referred to as the (learned) prior. This is essential for making the VQ-VAE generative, since it allows us to sample new data-points in the latent space. In our model, the latent distribution is learned using PixelSNAIL (Chen et al., 2018). PixelSNAIL is an autoregressive model, meaning that it assigns probabilities based on all previous data-points. Generally, this means that $p(x) = \prod^{N}_{i} p(x_i|x_{i'<i})$. If, during inference, we quantize a vector $z_{e_{n}}(x)$ to the vector $z_{q_n}(x)$, but the joint probability of the quantized vectors up to the $n$th vector, given by $\prod^{n}_{i}p\left(z_{q_i}|z_{q_{i'<i}}\right)$, is low, we can infer that the input data is unlikely to be something the model is used to reconstructing. In other words, if we have trained on a large amount of non-anomalous data points, a low assigned probability suggests the presence of an anomaly. Since the latent space is difficult to interpret, we do not derive anomaly scores directly from these probabilities. Instead, when a highly unlikely configuration of latent codes occurs, we resample the last quantized code $z_x$ from the latent distribution using the autoregressive prior. Since we will now have a much more likely and expected configuration of latent codes, the decoded image should not contain anomalies anymore. We can thus use the difference between the input and output image to calculate anomaly scores.
 
-![](/uploads/upload_61899469f62e78e30fa7fb8f4ee56f80.png)
+![](static/latent_space_restoration_example.png)
 
 The VQ-VAE architecture with a learned autoregressive prior comes with some advantages over a regular VAE.
 
@@ -93,7 +91,6 @@ $$
 > I would remove "(variables that are predicted to belong to the learned prior distribution)"
 
 The pixel-wise score allows us to localize the anomalies in an images. It works using the restoration process introduced in (Chen et al., 2020), which can be broken down in the following steps:
-
 1) Replace latent variables with a high loss using samples from the prior learned by the AR model, while keeping low loss latent variables (variables that are predicted to belong to the learned prior distribution) unaltered
 2) Draw a new sample if its latent NLL is above a threshold $\lambda_p$.
 3) Generate the restored image using the decoder
@@ -125,7 +122,7 @@ As the final step, the $\text{AS}_\text{pixel}$ scores are run through a 3x3 Min
     - Images are downsampled to 512 x 512 pixels.
 
 <p style="text-align: center">
-    <img src="/uploads/upload_783cc87a4c8be32db865dc6fcbb8d39a.png" alt>
+    <img src="static/ffhq_examples.png" alt>
     <center>Six images from the Flickr Faces HQ Dataset (FFHQ).</center>
 </p>
 
@@ -135,22 +132,22 @@ As the final step, the $\text{AS}_\text{pixel}$ scores are run through a 3x3 Min
     - The dataset is not public, but can be accessed by filling in [this form](https://docs.google.com/forms/d/e/1FAIpQLSdRRR3L5zAv6tQ_CKxmK4W96tAab_pfBu2EKAgQbeDVhmXagg/viewform) 
 
 <p style="text-align: center">
-    <img src="/uploads/upload_ec4f3eab8eb9d110284fff6bc3a4a7be.png" alt>
+    <img src="static/faceforensics1.png" alt>
     <center>The original video.</center>
 </p>
 
 <p style="text-align: center">
-    <img src="/uploads/upload_7667e5f0ea2c281c9f9a03efe9808f63.png" alt>
+    <img src="static/faceforensics2.png" alt>
     <center>Manipulated "DeepFakes" video, created using the <a href="https://github.com/deepfakes/faceswap">FaceSwap Github repository</a>.</center>
 </p>
 
 <p style="text-align: center">
-    <img src="/uploads/upload_5e83e0238a4a858e5992cc869f487b7a.png" alt>
+    <img src="static/faceforensics3.png" alt>
     <center>Manipulated video using the Face2Face method.</center>
 </p>
 
 <p style="text-align: center">
-    <img src="/uploads/upload_727953498e8fe33a6111483bfdbf6b10.png" alt>
+    <img src="static/faceforensics4.png" alt>
     <center>Manipulated video using the FaceSwap method.</center>
 </p>
 
@@ -163,35 +160,34 @@ As the final step, the $\text{AS}_\text{pixel}$ scores are run through a 3x3 Min
     - Images have been labeled to show which part of the face has been altered with
 
 <p style="text-align: center">
-    <img src="/uploads/upload_5f585d83aa6495cd61c99ecf0ca5b0db.jpeg" alt>
+    <img src="static/real_fake_faces_showcase.jpeg" alt>
     <center>Figure 2. Example of how the images are labelled with the use of filenames.</center>
 </p>
 
 <p style="text-align: center">
-    <img src="/uploads/upload_d17546e53a6537030a6993b5a538b9f2.png" alt>
+    <img src="static/real_and_fake_images_real_examples.png" alt>
     <center>Six examples of real images.</center>
 </p>
 
 <p style="text-align: center">
-    <img src="/uploads/upload_c00eab921b64ae158dbe01ccb0a258c5.png" alt>
+    <img src="static/real_and_fake_images_fake_examples.png" alt>
     <center>Six examples of easy, medium and hard photoshopped images, two per category.</center>
 </p>
-
 
 - [CelebA-DF](https://github.com/bomb2peng/DFGC_starterkit/tree/master/DFGC-21%20dataset)
     - Face images of celebrities collected from videos
     - Includes both real and fake images, where the fake images have been created using a variety of faceswap methods. Additionally adversarial noise has been added to morphed images to make detection harder
     - The dataset is not public, but can be accessed by filling in [form](https://docs.google.com/forms/d/e/1FAIpQLSdlHKqsvkpGtbm37KJdkaswWL-llOSqqZPaa8F5yJ08-koX2Q/viewform?usp=sf_link)
 
-
 ## Results
 
+To be written
 ### For reproduction
-
+To be written
 ### For extension
-
+To be written
 ## Discussion & possible further improvements
-
+To be written
 ## How we improved the current state
 
 While replicating the original results, we noticed that the implementation was unreasonably slow, and using different GPU models yielded no significant speedups. We profiled the code using [scalene](https://github.com/plasma-umass/scalene) and realized the data loader had two major issues: the selected MRI/CT slices were normalized using the full volume statistics, and whole volumes were loaded into memory, even though only 8 slices per sample were used. To solve the first issue, we moved the normalization code to the preprocessing notebook, and in order to speed up the data loading, we converted the samples to the [HDF5](http://hdfgroup.org/) data format, which allowed us to only read a subsection of the data instead of loading the whole $256 \times 160 \times 160$ array. These two modifications reduced the training time for the VQ-VAE and the AR model to ~2.5 hours per model instead of 20+ hours using an NVIDIA A100 graphics card.
@@ -202,7 +198,7 @@ Finally, the evaluation code for the pixel-wise anomaly scores ran a forward pas
 
 ## Individual contributions
 
-
+To be written
 ## Bibliography
  
 Chen, X., Mishra, N., Rohaninejad, M., & Abbeel, P. (2018, July). Pixelsnail: An improved autoregressive generative model. In International Conference on Machine Learning (pp. 864-872). PMLR.
@@ -220,3 +216,4 @@ Parmar, R., Kuribayashi, M., Takiwaki, H., & Raval, M. S. (2022, July). On fooli
 Xue, J., Yang, Y., & Jing, D. (2019, August). Deceiving face recognition neural network with samples generated by deepfool. In Journal of Physics: Conference Series (Vol. 1302, No. 2, p. 022059). IOP Publishing.
  
 Zimmerer, D., Full, P. M., Isensee, F., Jäger, P., Adler, T., Petersen, J., ... & Maier-Hein, K. (2022). MOOD 2020: A public Benchmark for Out-of-Distribution Detection and Localization on medical Images. IEEE Transactions on Medical Imaging, 41(10), 2728-2738.
+
