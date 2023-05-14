@@ -10,6 +10,8 @@ __pycache__/
 # C extensions
 *.so
 
+OriginalPaper/wandb
+
 # Distribution / packaging
 .Python
 build/
@@ -156,3 +158,17 @@ cython_debug/
 #.idea/
 .python-version
 pyrightconfig.json
+
+# Project files
+preprocessed_data.tar.gz
+load_data.py
+OriginalPaper/brain_data/*
+OriginalPaper/preprocessed_data/*
+OriginalPaper/.vscode/*
+playground/*
+fast_brain_data/*
+preprocessed-h5.tar.gz
+brain_toy.zip
+output/*
+checkpoints/*
+brain_toy/*

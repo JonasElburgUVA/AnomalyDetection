@@ -25,7 +25,7 @@ import preprocessing
 import utils
 import nets_LV
 
-from utils import img_extended
+from utils import mri_sample
 
 from sklearn import metrics
 from skimage.transform import resize
@@ -96,7 +96,7 @@ holdout_loader = DataLoader(holdout_dset, batch_size=8,shuffle=True,num_workers=
 
 # X_hl = next(iter(holdout_loader))
 
-"""Images are in the attribute img of the img_extended object. Coordinates are in coord (used to condition both VQ-VAE and AR)"""
+"""Images are in the attribute img of the mri_sample object. Coordinates are in coord (used to condition both VQ-VAE and AR)"""
 
 # print(X_hl.img.shape)
 # print(X_hl.coord.shape)
@@ -183,13 +183,8 @@ def load_volume_brain(source_file, slices = 32):
         
         coord = np.linspace(-.5,.5,slices)[:, np.newaxis]
         
-        img_batch = img_extended(nimg_array,
-                                   np.zeros(slices,dtype='uint8'),
-                                   np.zeros(slices,dtype='uint8'),
-                                   np.zeros(slices,dtype='uint8'),
-                                   coord,
-                                   np.zeros(slices,dtype='uint8'),
-                                  )
+        # FIXME: This may need to be updated
+        img_batch = mri_sample(nimg_array, coord, None)
         
         return img_batch, vol_s, nimg.affine
 

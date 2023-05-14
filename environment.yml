@@ -16,7 +16,9 @@ dependencies:
     - torchvision==0.14.1+cu117
     - torchaudio==0.13.1
     - nibabel
+    - h5py
     - scikit-image
     - albumentations
     - tensorboard
     - tqdm
+    - wandb
