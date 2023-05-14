@@ -21,3 +21,4 @@ dependencies:
     - albumentations
     - tensorboard
     - tqdm
+    - wandb
