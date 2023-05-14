@@ -30,7 +30,7 @@ class nin(nn.Module):
         return x.view(batch,self.out_channels,height,width)
 
 class MaskedConv(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, mask_type, stride = 1, v_gated = False, cond_channels = None):
+    def __init__(self, in_channels, out_channels, kernel_size, mask_type, stride = 1, v_gated = False):
         super(MaskedConv, self).__init__()
 
         if isinstance(kernel_size,int):
@@ -38,7 +38,6 @@ class MaskedConv(nn.Module):
         self.kernel_size = kernel_size
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.cond_channels = cond_channels
         self.stride = stride
 
         if v_gated:
@@ -54,23 +53,9 @@ class MaskedConv(nn.Module):
         self.register_buffer('rest_of_filter',torch.zeros((out_channels, in_channels,
                                                            kernel_size[0]*kernel_size[1] - self.weight_size)))
 
-        if cond_channels is not None:
-            self.weight_cond = nn.Parameter(torch.randn((out_channels, cond_channels,
-                                                         kernel_size[0], kernel_size[1])) * 0.01,
-                                            requires_grad=True)
-
-    def forward(self, x, cond = None):
+    def forward(self, x):
         filter = torch.cat([self.weight,self.rest_of_filter],dim=2)
         filter = filter.view(self.out_channels, self.in_channels, self.kernel_size[0], self.kernel_size[1])
-
-        if self.cond_channels is not None:
-            filter = torch.cat([filter,self.weight_cond],dim=1)
-
-            # If condition is flat reshape and expand so it can be concatenated
-            if (len(cond.shape)==2):
-                cond = cond.view(cond.shape[0],-1,1,1).expand(-1,-1,x.shape[2],x.shape[3])
-            # Append condition to input
-            x = torch.cat([x,cond],1)
 
         x = F.conv2d(input=x, weight=filter,
                      bias=self.bias,
@@ -79,19 +64,17 @@ class MaskedConv(nn.Module):
         return x
 
 class ResMaskedBlock(nn.Module):
-    def __init__(self, in_channels, res_channels, kernel_size, cond_channels = None, non_linearity = F.relu):
+    def __init__(self, in_channels, res_channels, kernel_size, non_linearity = F.relu):
         super(ResMaskedBlock, self).__init__()
-        self.cond_channels = cond_channels
         self.non_linearity = non_linearity
 
-        self.iniconv = MaskedConv(in_channels=in_channels,out_channels=res_channels,kernel_size=1,mask_type='B',
-                                  cond_channels=cond_channels)
+        self.iniconv = MaskedConv(in_channels=in_channels,out_channels=res_channels,kernel_size=1,mask_type='B')
         self.midconv = MaskedConv(in_channels=res_channels,out_channels=res_channels,kernel_size=kernel_size,mask_type='B')
         self.endconv = MaskedConv(in_channels=res_channels, out_channels=in_channels,kernel_size= 1, mask_type='B')
 
-    def forward(self,x, cond = None):
+    def forward(self,x):
         out = x
-        out = self.non_linearity(self.iniconv(out,cond))
+        out = self.non_linearity(self.iniconv(out))
         out = self.non_linearity(self.midconv(out))
         out = self.non_linearity(self.endconv(out))
         out += x
@@ -108,26 +91,24 @@ def right_shift(x):
     return pad(x)
 
 class GatedMaskedConv(nn.Module):
-    def __init__(self, in_channels, kernel_size,cond_channels = None):
+    def __init__(self, in_channels, kernel_size):
         """Implementation of gated residual unit of https://arxiv.org/pdf/1606.05328.pdf"""
         super(GatedMaskedConv, self).__init__()
 
-        self.cond_channels = cond_channels
-
         # Initial layer
-        self.v_conv = MaskedConv(in_channels,in_channels*2,kernel_size,'B',v_gated=True,cond_channels=cond_channels)
-        self.h_conv = MaskedConv(in_channels, in_channels*2,(1,kernel_size),'B',cond_channels=cond_channels)
+        self.v_conv = MaskedConv(in_channels,in_channels*2,kernel_size,'B',v_gated=True)
+        self.h_conv = MaskedConv(in_channels, in_channels*2,(1,kernel_size),'B')
         self.int_conv = nn.Conv2d(in_channels*2,in_channels*2,1)
         self.out_conv = nn.Conv2d(in_channels,in_channels,1)
 
-    def forward(self,x, cond = None):
+    def forward(self, x):
         xv,xh = x.chunk(2,dim=1)
 
         # Initial Conv Vertical stack
-        xv = self.v_conv(xv,cond)
+        xv = self.v_conv(xv)
 
         # Horizontal stack
-        xh_conv = self.h_conv(xh,cond)
+        xh_conv = self.h_conv(xh)
         xh_conv += self.int_conv(down_shift(xv))
         xh_conv_tanh, xv_conv_sigmoid = xh_conv.chunk(2,dim=1)
         xh_conv = torch.tanh(xh_conv_tanh) * torch.sigmoid(xv_conv_sigmoid)
@@ -142,8 +123,7 @@ class GatedMaskedConv(nn.Module):
 
 
 class GatedResNet(nn.Module):
-    def __init__(self, in_channels, kernel_size, n_channels = None, aux_channels = None,
-                 cond_channels = None, dropout_p = 0.,non_linearity = F.elu, conv = WNConv2d, norm = None):
+    def __init__(self, in_channels, kernel_size, n_channels = None, aux_channels = None, dropout_p = 0.,non_linearity = F.elu, conv = WNConv2d, norm = None):
 
         """Implementation of gated residual unit of https://openreview.net/pdf?id=BJrFC6ceg
         Note that this is not masked, for being causal it relies on specific conv sizes and shifts outside of the
@@ -155,15 +135,13 @@ class GatedResNet(nn.Module):
 
         self.n_channels = n_channels
         self.aux_channels = aux_channels
-        self.cond_channels = cond_channels
         self.dropout_p = dropout_p
         self.non_linearity = non_linearity
 
         self.kernel_size = (kernel_size,kernel_size) if isinstance(kernel_size,int) else kernel_size
         self.pad = [i//2 for i in self.kernel_size]
 
-        self.conv1 = conv(in_channels + (0 if cond_channels is None else cond_channels),
-                               n_channels, kernel_size, padding=self.pad)
+        self.conv1 = conv(in_channels, n_channels, kernel_size, padding=self.pad)
         self.norm1 = None if norm is None else norm(n_channels)
 
         if aux_channels is not None:
@@ -177,15 +155,8 @@ class GatedResNet(nn.Module):
 
         self.gate = nn.GLU(1)
 
-    def forward(self, x, aux = None, cond = None):
+    def forward(self, x, aux = None):
         out = x
-        # If there are conditional channels, append them
-        # NOTE: In the original paper they add conditions after conv2.
-        # They also pass it through a 1f conv before adding it
-        if self.cond_channels is not None:
-            if len(cond.shape) == 2:
-                cond = cond.view(cond.shape[0], -1, 1, 1).expand(-1, -1, x.shape[2], x.shape[3])
-            out = torch.cat([out, cond], 1)
 
         if self.norm1 is not None:
             out = self.norm1(out)
@@ -285,7 +256,7 @@ class CausalAttention(nn.Module):
         return out
 
 class PixelBlock(nn.Module):
-    def __init__(self,in_channel,value_size = 80, n_res_block=4, shape=(32,32), dropout_p=0.1,cond_channels=None,
+    def __init__(self,in_channel,value_size = 80, n_res_block=4, shape=(32,32), dropout_p=0.1,
                  non_linearity = F.elu, downsample_attn = 2):
         super().__init__()
 
@@ -295,19 +266,19 @@ class PixelBlock(nn.Module):
         h_resblocks = []
         for _ in range(n_res_block):
             v_resblocks.append(GatedResNet(in_channels = in_channel, kernel_size = [2,3],
-                                           n_channels = in_channel, cond_channels=cond_channels,
+                                           n_channels = in_channel,
                                            dropout_p=dropout_p, non_linearity=non_linearity))
             h_resblocks.append(GatedResNet(in_channels = in_channel, kernel_size = [2,2],
-                                           n_channels= in_channel, cond_channels=cond_channels,
+                                           n_channels= in_channel,
                                            aux_channels= in_channel,
                                            dropout_p = dropout_p, non_linearity=non_linearity))
 
         self.v_resblocks = nn.ModuleList(v_resblocks)
         self.h_resblocks = nn.ModuleList(h_resblocks)
 
-        self.downsample_key = MaskedConv(in_channel * 2 + 2,in_channel, kernel_size=5,
+        self.downsample_key = MaskedConv(in_channel * 2,in_channel, kernel_size=5,
                                          stride = downsample_attn, mask_type='B',)
-        self.downsample_query = MaskedConv(in_channel + 2,in_channel, kernel_size=5,
+        self.downsample_query = MaskedConv(in_channel,in_channel, kernel_size=5,
                                            stride = downsample_attn, mask_type='B',)
 
         shape_attn = (shape[0]//downsample_attn,shape[1]//downsample_attn)
@@ -321,12 +292,12 @@ class PixelBlock(nn.Module):
         self.out_resblock = GatedResNet(in_channel, kernel_size=1, n_channels=in_channel,
                                         aux_channels= in_channel,dropout_p=dropout_p)
 
-    def forward(self, input, cond=None):
+    def forward(self, input):
         out = input
         v_out = h_out = out
         for v_resblock, h_resblock in zip(self.v_resblocks,self.h_resblocks):
-            v_out = v_resblock(v_out, cond=cond)
-            h_out = h_resblock(h_out, aux = down_shift(v_out), cond=cond)
+            v_out = v_resblock(v_out)
+            h_out = h_resblock(h_out, aux = down_shift(v_out))
 
         out = h_out
 

@@ -9,7 +9,7 @@ from tqdm import tqdm
 wandb.login()
 
 
-def train(model, train_loader, optimizer, device):
+def train(model, train_loader, optimizer, device, log_recon_metrics=False):
     model.train()
 
     train_losses = []
@@ -22,8 +22,10 @@ def train(model, train_loader, optimizer, device):
         optimizer.zero_grad()
         loss["loss"].backward()
 
-        train_ssim.append(loss["ssim"].item() * img.shape[0])
-        train_psnr.append(loss["psnr"].item() * img.shape[0])
+        if log_recon_metrics:
+            train_ssim.append(loss["ssim"].item() * img.shape[0])
+            train_psnr.append(loss["psnr"].item() * img.shape[0])
+
         train_losses.append(loss["loss"].item() * img.shape[0])
 
         # Gradient clippling
@@ -40,7 +42,7 @@ def train(model, train_loader, optimizer, device):
     return train_loss, train_ssim, train_psnr
 
 
-def eval_loss(model, data_loader, device):
+def eval_loss(model, data_loader, device, log_recon_metrics=False):
     model.eval()
 
     eval_losses = []
@@ -51,8 +53,10 @@ def eval_loss(model, data_loader, device):
         for img, _ in data_loader:
             loss = model.loss(img.to(device))
 
-            val_ssim.append(loss["ssim"].item() * img.shape[0])
-            val_psnr.append(loss["psnr"].item() * img.shape[0])
+            if log_recon_metrics:
+                val_ssim.append(loss["ssim"].item() * img.shape[0])
+                val_psnr.append(loss["psnr"].item() * img.shape[0])
+
             eval_losses.append(loss['loss'].item() * img.shape[0])
 
             batch_sizes.append(img.shape[0])
@@ -96,7 +100,7 @@ class train_tracker:
         plt.show()
 
 
-def train_epochs(model, optimizer, tracker, train_loader, test_loader, epochs, device, config, chpt=None):
+def train_epochs(model, optimizer, tracker, train_loader, test_loader, epochs, device, config, chpt=None, log_recon_metrics=False):
     wandb.init(
         # set the wandb project where this run will be logged
         project="AnomalyDetection",
@@ -107,17 +111,18 @@ def train_epochs(model, optimizer, tracker, train_loader, test_loader, epochs, d
     print('Starting training')
 
     for epoch in range(epochs):
-        train_loss, train_ssim, train_psnr = train(model, train_loader, optimizer, device)
-        test_loss, val_ssim, val_psnr = eval_loss(model, test_loader, device)
+        train_loss, train_ssim, train_psnr = train(model, train_loader, optimizer, device, log_recon_metrics=log_recon_metrics)
+        test_loss, val_ssim, val_psnr = eval_loss(model, test_loader, device, log_recon_metrics=log_recon_metrics)
 
         wandb.log({'Loss/train': train_loss})
         wandb.log({'Loss/test': test_loss})
 
-        wandb.log({'Metrics/train_ssim': train_ssim})
-        wandb.log({'Metrics/train_psnr': train_psnr})
+        if log_recon_metrics:
+            wandb.log({'Metrics/train_ssim': train_ssim})
+            wandb.log({'Metrics/train_psnr': train_psnr})
 
-        wandb.log({'Metrics/val_ssim': val_ssim})
-        wandb.log({'Metrics/val_psnr': val_psnr})
+            wandb.log({'Metrics/val_ssim': val_ssim})
+            wandb.log({'Metrics/val_psnr': val_psnr})
 
         tracker.append(train_loss, test_loss, optimizer.param_groups[0]['lr'])
 
