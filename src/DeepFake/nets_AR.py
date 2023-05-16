@@ -49,7 +49,7 @@ class PixelSNAIL(nn.Module):
     def forward(self, input):
         input = F.one_hot(input, self.d).permute(0, 3, 1, 2)
 
-        out = self.ini_conv(input)
+        out = self.ini_conv(input.float())
 
         for block in self.blocks:
             out = block(out)

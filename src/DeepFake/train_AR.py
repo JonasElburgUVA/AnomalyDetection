@@ -55,4 +55,5 @@ utils.train_epochs(
     epochs=40,
     device=device,
     config=wandb_config,
-    chpt='AR')
+    chpt='AR',
+    log_recon_metrics=True)

@@ -60,5 +60,6 @@ utils.train_epochs(
     epochs=20,
     device=device,
     config=wandb_config,
-    chpt="ffhq_continued"
+    chpt="ffhq",
+    log_recon_metrics=True
 )
