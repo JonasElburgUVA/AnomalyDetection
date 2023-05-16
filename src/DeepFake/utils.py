@@ -2,7 +2,7 @@ import torch
 import wandb
 
 import matplotlib.pyplot as plt
-
+import os
 from tqdm import tqdm
 
 
@@ -124,6 +124,10 @@ def train_epochs(model, optimizer, tracker, train_loader, test_loader, epochs, d
         print('{} epochs, {:.3f} test loss, {:.3f} train loss'.format(
             len(tracker), test_loss, train_loss))
         if chpt is not None:
+            if (not os.path.isdir("checkpoints")):
+                print('Created folder "checkpoints".')
+                os.mkdir('checkpoints')
+                
             save_checkpoint(model, optimizer, tracker,
                             'checkpoints/{}_{:03}.pt'.format(chpt, len(tracker)))
 

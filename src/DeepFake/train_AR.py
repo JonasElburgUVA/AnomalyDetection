@@ -6,10 +6,6 @@ import torchvision.transforms as transforms
 
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
-continue_from_checkpoint = True
-checkpoint_path = '/home/lcur1737/AnomalyDetection/src/checkpoints/ffhq_020.pt'
-
-device = torch.device("cuda")
 
 train_dir = '../../../../project/gpuuva022/shared/AnomalyDetection/FFHQ_Data/FFHQ_data/train_ffhq/'
 holdout_dir = '../../../../project/gpuuva022/shared/AnomalyDetection/FFHQ_Data/FFHQ_data/holdout_ffhq'
@@ -29,26 +25,25 @@ val_dataset = ImageFolder(holdout_dir, transform=transform_pipeline)
 train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=True)
 
-model = nets_LV.VQVAE(
+device = torch.device('cuda')
+feat_ext_mdl = nets_LV.VQVAE(
     d=3,
     n_channels=(16, 32, 64, 256),
     code_size=128,
     n_res_block=2,
     dropout_p=.1
-).to(device)
+)
 
+model = nets_LV.VQLatentSNAIL(feature_extractor_model=feat_ext_mdl,
+                              shape=(20, 20), n_block=4, n_res_block=4, n_channels=128)
+model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 tracker = utils.train_tracker()
 
-if continue_from_checkpoint:
-    checkpoint = torch.load(checkpoint_path)
-    model.load_state_dict(checkpoint['model'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-
 wandb_config = {
-    "architecture": "VQ-VAE",
+    "architecture": "AR",
     "dataset": "FFHQ",
-    "epochs": 10,
+    "epochs": 30,
 }
 
 utils.train_epochs(
@@ -57,8 +52,7 @@ utils.train_epochs(
     tracker=tracker,
     train_loader=train_dataloader,
     test_loader=val_dataloader,
-    epochs=20,
+    epochs=40,
     device=device,
     config=wandb_config,
-    chpt="ffhq_continued"
-)
+    chpt='AR')
