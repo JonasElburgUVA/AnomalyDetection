@@ -28,7 +28,7 @@ class VQVAE(nn.Module):
         self.code_size = code_size
         self.reconstruction_loss = reconstruction_loss
 
-        if isinstance(n_channels,int):
+        if isinstance(n_channels, int):
             n_channels = [n_channels] * (n_block + 1)
         else:
             n_block = len(n_channels) - 1
@@ -49,7 +49,8 @@ class VQVAE(nn.Module):
                 )
 
             down.extend([
-                nn.Conv2d(n_channels[block], n_channels[block + 1], kernel_size=5, stride=2, padding=2),
+                nn.Conv2d(n_channels[block], n_channels[block + 1],
+                          kernel_size=5, stride=2, padding=2),
                 nn.BatchNorm2d(n_channels[block + 1])
             ])
 
@@ -66,7 +67,8 @@ class VQVAE(nn.Module):
 
         # Decoder
         up = [
-            nn.Conv2d(n_channels[-1], n_channels[-1], kernel_size=3, padding=1),
+            nn.Conv2d(n_channels[-1], n_channels[-1],
+                      kernel_size=3, padding=1),
             nn.BatchNorm2d(n_channels[-1])
         ]
 
@@ -79,13 +81,15 @@ class VQVAE(nn.Module):
                     conv=nn.Conv2d,
                     norm=nn.BatchNorm2d
                 ))
-            
+
             up.extend([
-                nn.ConvTranspose2d(n_channels[-(block + 1)], n_channels[-(block + 2)], kernel_size=6, stride=2, padding=2),
+                nn.ConvTranspose2d(
+                    n_channels[-(block + 1)], n_channels[-(block + 2)], kernel_size=6, stride=2, padding=2),
                 nn.BatchNorm2d(n_channels[-(block + 2)])
             ])
-        
-        up.append(nn_blocks.GatedResNet(n_channels[0], 3, dropout_p=dropout_p, conv=nn.Conv2d, norm=nn.BatchNorm2d))
+
+        up.append(nn_blocks.GatedResNet(
+            n_channels[0], 3, dropout_p=dropout_p, conv=nn.Conv2d, norm=nn.BatchNorm2d))
 
         up.extend([
             nn.ELU(),
@@ -140,7 +144,7 @@ class VQLatentSNAIL(PixelSNAIL):
         self.feature_extractor_model = feature_extractor_model
         self.feature_extractor_model.eval()
 
-    def retrieve_codes(self,x):
+    def retrieve_codes(self, x):
         with torch.no_grad():
             self.feature_extractor_model.eval()
             z = self.feature_extractor_model.encode(x)
@@ -159,12 +163,12 @@ class VQLatentSNAIL(PixelSNAIL):
     def loss(self, x, reduction="mean"):
         # Retrieve codes for images
         code = self.retrieve_codes(x)
-        logits = super(VQLatentSNAIL,self).forward(code)
+        logits = super(VQLatentSNAIL, self).forward(code)
         nll = F.cross_entropy(logits, code, reduction=reduction)
 
         return OrderedDict(loss=nll)
 
-    def sample(self, n, img_size = (64,64)):
+    def sample(self, n, img_size=(64, 64)):
         device = next(self.parameters()).device
         samples = torch.zeros(n, *img_size).long().to(device)
 
@@ -172,7 +176,8 @@ class VQLatentSNAIL(PixelSNAIL):
             for r in range(img_size[0]):
                 for c in range(img_size[1]):
                     # FIXME: Moving this outside the loop should speed it up
-                    logits = super(VQLatentSNAIL,self).forward(samples)[:, :, r, c]
+                    logits = super(VQLatentSNAIL, self).forward(
+                        samples)[:, :, r, c]
 
                     probs = F.softmax(logits, dim=1)
                     samples[:, r, c] = torch.multinomial(probs, 1).squeeze(-1)

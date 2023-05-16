@@ -9,9 +9,10 @@ __pycache__/
 .ipynb_checkpoints
 # C extensions
 *.so
-
+checkpoints
 OriginalPaper/wandb
-
+wandb
+slurms
 # Distribution / packaging
 .Python
 build/

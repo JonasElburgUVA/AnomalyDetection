@@ -18,13 +18,18 @@ transform_pipeline = transforms.Compose([
     transforms.ToTensor()
 ])
 
-train_dataset = ImageFolder("images/ffhq/train/", transform=transform_pipeline)
-val_dataset = ImageFolder("images/ffhq/validation/", transform=transform_pipeline)
+train_dir = '../../../../project/gpuuva022/shared/AnomalyDetection/FFHQ_Data/FFHQ_data/train_ffhq/'
+holdout_dir = '../../../../project/gpuuva022/shared/AnomalyDetection/FFHQ_Data/FFHQ_data/holdout_ffhq'
+val_dir = '../../../../project/gpuuva022/shared/AnomalyDetection/FFHQ_Data/FFHQ_data/val_ffhq'
+
+train_dataset = ImageFolder(train_dir, transform=transform_pipeline)
+val_dataset = ImageFolder(holdout_dir, transform=transform_pipeline)
 
 train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=True)
 
-vq_checkpoint = torch.load("checkpoints/ffhq_vqvae_010.pt")
+vq_checkpoint = torch.load(
+    "/home/lcur1737/AnomalyDetection/src/checkpoints/ffhq_continued_020.pt")
 
 vq_model = nets_LV.VQVAE(
     d=3,
@@ -48,6 +53,12 @@ ar_model = nets_LV.VQLatentSNAIL(
 optimizer = optim.Adam(ar_model.parameters(), lr=1e-4)
 tracker = utils.train_tracker()
 
+wandb_config = {
+    "architecture": "AR",
+    "dataset": "FFHQ",
+    "epochs": 30,
+}
+
 utils.train_epochs(
     model=ar_model,
     optimizer=optimizer,
@@ -56,7 +67,7 @@ utils.train_epochs(
     test_loader=val_dataloader,
     epochs=30,
     device=device,
-    config=None,
+    config=wandb_config,
     chpt="ffhq_ar",
     log_recon_metrics=False
 )

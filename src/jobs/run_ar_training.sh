@@ -13,4 +13,4 @@ module purge
 
 source activate vae
 
-srun python DeepFake/train_AR.py
+srun python DeepFake/train_ar.py
