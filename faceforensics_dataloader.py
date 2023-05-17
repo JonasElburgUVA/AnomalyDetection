@@ -111,6 +111,7 @@ class FaceForensicsDataset(Dataset):
         img_batch = []
         origin_batch = []
         mask_batch = []
+        cropped_batch = []
 
         for i in range(len(frames)):
             img = self.transform_img(Image.open(os.path.join(combined_dir, frames[i])))
@@ -121,30 +122,57 @@ class FaceForensicsDataset(Dataset):
                 Image.open(os.path.join(mask_dir, masks[i])).convert("L")
             )
             # if self.face_only:
-            #     img = self.apply_mask(img, msk)
-            #     origin = self.apply_mask(origin, msk)
+            cropped_img = self.apply_mask(img, msk)
+
             if self.transform is not None:
                 # RandomHorizontalFlip
                 if random.random() > 0.5:
                     img = tf.hflip(img)
                     origin = tf.hflip(origin)
                     msk = tf.hflip(msk)
+                    cropped_img = tf.hflip(cropped_img)
 
                 img = self.transform(img)
                 origin = self.transform(origin)
                 msk = self.transform(msk)
+                cropped_img = self.transform(cropped_img)
 
             img_batch.append(img.unsqueeze(0))
             origin_batch.append(origin.unsqueeze(0))
             mask_batch.append(msk.unsqueeze(0))
+            cropped_batch.append(cropped_img.unsqueeze(0))
 
-        return torch.cat(img_batch), torch.cat(origin_batch), torch.cat(mask_batch)
+        return (
+            torch.cat(img_batch),
+            torch.cat(origin_batch),
+            torch.cat(mask_batch),
+            torch.cat(cropped_batch),
+        )
 
-    # def apply_mask(self, img, mask):
-    #     """
-    #     Return a crop that contains the face.
-    #     """
-    #     pass
+    def apply_mask(self, img, mask):
+        """
+        Return a crop that contains the face.
+        """
+        # Convert mask to binary
+        binary_mask = mask > 0.5  # Set threshold to 0.5
+
+        # Find bounding box of mask of mask in CxHxW format
+        nonzero_indices = torch.nonzero(binary_mask)
+        h_min = nonzero_indices[:, 1].min().item()  # - 100
+        h_max = nonzero_indices[:, 1].max().item()  # + 100
+        w_min = nonzero_indices[:, 2].min().item()  # - 100
+        w_max = nonzero_indices[:, 2].max().item()  # + 100
+
+        edge_len = 1.5 * max(h_max - h_min, w_max - w_min) / 2
+        center_h = (h_min + h_max) / 2
+        center_w = (w_min + w_max) / 2
+        top = int(center_h - edge_len)
+        bottom = int(center_h + edge_len)
+        left = int(center_w - edge_len)
+        right = int(center_w + edge_len)
+
+        c = img[:, top : bottom + 1, left : right + 1]
+        return c
 
 
 if __name__ == "__main__":
@@ -160,7 +188,7 @@ if __name__ == "__main__":
     transform = transforms.Compose(
         [
             transforms.Resize(
-                (126),
+                (126, 126),
             ),  # resize the image to whatever
         ]
     )
@@ -168,15 +196,20 @@ if __name__ == "__main__":
     task = "Deepfakes"
 
     dataset = FaceForensicsDataset(
-        "./data", task, frame_step=10, transform=transform, compression="raw"
+        "./data",
+        task,
+        frame_step=10,
+        transform=transform,
+        compression="raw",
+        face_only=True,
     )
 
-    out, src, mask = dataset[0]
-    out, src, mask = out[0], src[0], mask[0]
+    out, src, mask, crop = dataset[0]
+    out, src, mask, crop = out[0], src[0], mask[0], crop[0]
     print(out.shape, src.shape, mask.shape)
     # Create grid of images & turn mask in 3 channel image for visualization
     grid = torchvision.utils.make_grid(
-        [out, src, mask.expand(3, -1, -1)],
+        [out, src, mask.expand(3, -1, -1), crop],
         nrow=2,
     )
     # permute to PIL HxWxC format
