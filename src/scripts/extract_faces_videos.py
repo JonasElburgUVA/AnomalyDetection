@@ -49,6 +49,10 @@ for video_path in tqdm(videos):
         ) for frame in video
     ]
 
+    video_folder = os.path.join(args.output_directory, video_id)
+
+    os.makedirs(video_folder, exist_ok=True)
+
     for i, frame in enumerate(frames):
         # Boxes are returned as a list in the form
         # [x0, y0, x1, y1]
@@ -110,6 +114,6 @@ for video_path in tqdm(videos):
 
             face_image = Image.fromarray(face_slice)
             face_image.save(os.path.join(
-                args.output_directory,
-                f"face_{video_id}_{i}_{face_id}_{confidence}.jpg"
+                video_folder,
+                f"face_{i}_{face_id}_{confidence}.jpg"
             ))
