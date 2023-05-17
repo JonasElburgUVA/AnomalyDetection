@@ -13,6 +13,7 @@ dependencies:
   - pip:
     - --extra-index-url https://download.pytorch.org/whl/cu117 >/dev/null
     - torch==1.13.1
+    - torchmetrics
     - torchvision==0.14.1+cu117
     - torchaudio==0.13.1
     - nibabel
