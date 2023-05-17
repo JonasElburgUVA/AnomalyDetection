@@ -8,6 +8,7 @@ import torchvision.transforms.functional as tf
 
 from PIL import Image
 import random
+import numpy as np
 
 
 """
@@ -35,144 +36,69 @@ class FaceForensicsDataset(Dataset):
     """Images are sized 720x1280 (HxW)"""
 
     def __init__(
-        self,
-        data_dir,
-        task,
-        frame_step=1,
-        transform=None,
-        compression="raw",
-        face_only=False,
+        self, data_dir, split, compression="raw", sample_number=64, deepfakes=False
     ) -> None:
         super().__init__()
 
-        if task not in ["Deepfakes"]:  # "DeepFakeDetection"
-            raise NotImplemented(
-                "Invalid task. choose: 'Deepfakes'"  # or 'DeepFakeDetection'"
+        if split not in ["train", "dev", "test"]:
+            raise NotImplemented("Invalid split. Available split are: train, test, dev")
+
+        if deepfakes:
+            self.path = os.path.join(
+                data_dir,
+                "manipulated_sequences",
+                "Deepfakes",
+                compression,
+                "images",
+                split,
             )
-        self.task = task
-        self.path = os.path.join(data_dir, "manipulated_sequences", task)
-
-        dir_name = task == "Deepfakes" and "youtube" or "actors"
-        self.source_path = os.path.join(
-            data_dir, "original_sequences", dir_name, compression, "images"
-        )
-
-        self.image_path = os.path.join(self.path, compression, "images")
-        self.mask_path = os.path.join(self.path, "masks", "images")
-
-        self.files = sorted(os.listdir(self.image_path))
-        self.frame_step = frame_step
-        self.face_only = face_only
-
+        else:
+            self.path = os.path.join(
+                data_dir, "original_sequences", "youtube", compression, "images", split
+            )
+        self.files = sorted(os.listdir(self.path))
+        self.sample_number = sample_number
         self.length_limit = min(
-            [len(os.listdir(os.path.join(self.image_path, f))) for f in self.files]
+            [len(os.listdir(os.path.join(self.path, f))) for f in self.files]
         )
-        print("Shortest video in frames:", self.length_limit)
+        assert (
+            self.sample_number <= self.length_limit
+        ), f"Sample number exceeds shortest video length {self.length_limit}"
+
         self.transform = transform
-        self.transform_img = transforms.PILToTensor()
+        self.to_tensor = transforms.PILToTensor()
 
     def __len__(self):
         return len(self.files)
 
     def __getitem__(self, idx):
         """
-        Returns batch of frames of a Deepfaked video shaped BxLxCxHxW
-        and the masks outlining the faces.
-
+        Returns batch of frames of a Deepfaked video shaped BxLxCxHxW, where L is the sample_number
         """
         fname = self.files[idx]
-        combined_dir = os.path.join(self.image_path, fname)
-        frames = sorted(os.listdir(combined_dir))
-
-        mask_dir = os.path.join(self.mask_path, fname)
-        masks = sorted(os.listdir(mask_dir))
-
-        # TODO: Naming scheme of DeepFakeDetection is different
-        source, _ = fname.split("_")[:2]
-
-        source_dir = os.path.join(self.source_path, source)
-        src_frames = sorted(os.listdir(source_dir))
-        # target_dir = os.path.join(self.source_path, target)
-
-        # Limiting the length to the shortest video to allow batching
-        # and masks start on the second frame so we skip the first
-        frames = frames[1 : self.length_limit : self.frame_step]
-        masks = masks[: self.length_limit : self.frame_step]
-        src_frames = src_frames[1 : self.length_limit : self.frame_step]
-
-        assert len(frames) == len(
-            masks
-        ), f"{len(frames)} != {len(masks)}. Length mismatch between mask and manipulated {fname}"
-
-        assert len(frames) == len(
-            src_frames
-        ), f"{len(frames)} != {len(src_frames)}. Length mismatch between original {source} and manipulated {fname}"
-
-        img_batch = []
-        origin_batch = []
-        mask_batch = []
-        cropped_batch = []
-
-        for i in range(len(frames)):
-            img = self.transform_img(Image.open(os.path.join(combined_dir, frames[i])))
-            origin = self.transform_img(
-                Image.open(os.path.join(source_dir, src_frames[i]))
-            )
-            msk = self.transform_img(
-                Image.open(os.path.join(mask_dir, masks[i])).convert("L")
-            )
-            # if self.face_only:
-            cropped_img = self.apply_mask(img, msk)
-
-            if self.transform is not None:
-                # RandomHorizontalFlip
-                if random.random() > 0.5:
-                    img = tf.hflip(img)
-                    origin = tf.hflip(origin)
-                    msk = tf.hflip(msk)
-                    cropped_img = tf.hflip(cropped_img)
-
-                img = self.transform(img)
-                origin = self.transform(origin)
-                msk = self.transform(msk)
-                cropped_img = self.transform(cropped_img)
-
-            img_batch.append(img.unsqueeze(0))
-            origin_batch.append(origin.unsqueeze(0))
-            mask_batch.append(msk.unsqueeze(0))
-            cropped_batch.append(cropped_img.unsqueeze(0))
-
-        return (
-            torch.cat(img_batch),
-            torch.cat(origin_batch),
-            torch.cat(mask_batch),
-            torch.cat(cropped_batch),
+        dir = os.path.join(self.path, fname)
+        frames = os.listdir(dir)
+        frames = random.sample(os.listdir(dir), k=self.sample_number)
+        img_batch = torch.stack(
+            [self.to_tensor(Image.open(os.path.join(dir, f))) for f in frames]
         )
 
-    def apply_mask(self, img, mask):
-        """
-        Return a crop that contains the face.
-        """
-        # Convert mask to binary
-        binary_mask = mask > 0.5  # Set threshold to 0.5
+        if self.transform is not None:
+            img_batch = self.transform(img_batch)
 
-        # Find bounding box of mask of mask in CxHxW format
-        nonzero_indices = torch.nonzero(binary_mask)
-        h_min = nonzero_indices[:, 1].min().item()  # - 100
-        h_max = nonzero_indices[:, 1].max().item()  # + 100
-        w_min = nonzero_indices[:, 2].min().item()  # - 100
-        w_max = nonzero_indices[:, 2].max().item()  # + 100
+        return img_batch
 
-        edge_len = 1.5 * max(h_max - h_min, w_max - w_min) / 2
-        center_h = (h_min + h_max) / 2
-        center_w = (w_min + w_max) / 2
-        top = int(center_h - edge_len)
-        bottom = int(center_h + edge_len)
-        left = int(center_w - edge_len)
-        right = int(center_w + edge_len)
 
-        c = img[:, top : bottom + 1, left : right + 1]
-        return c
+def collate_fn(batch):
+    """Transform the input batch of shape BxLxCxHxW to (B*L)xCxHxW"""
+    # Return the flattened batch
+    stacked_batch = torch.stack(batch)
+    flattened_batch = stacked_batch.view(-1, *stacked_batch.shape[2:])
+    # Shuffle the flattened batch
+    indices = torch.randperm(flattened_batch.size(0))
+    batch = flattened_batch[indices]
+
+    return flattened_batch
 
 
 if __name__ == "__main__":
@@ -188,37 +114,19 @@ if __name__ == "__main__":
     transform = transforms.Compose(
         [
             transforms.Resize(
-                (126, 126),
+                (126, 224), antialias=None
             ),  # resize the image to whatever
         ]
     )
 
-    task = "Deepfakes"
-
     dataset = FaceForensicsDataset(
-        "./data",
-        task,
-        frame_step=10,
-        transform=transform,
-        compression="raw",
-        face_only=True,
+        "./data", split="train", compression="raw", sample_number=10, deepfakes=False
     )
 
-    out, src, mask, crop = dataset[0]
-    out, src, mask, crop = out[0], src[0], mask[0], crop[0]
-    print(out.shape, src.shape, mask.shape)
-    # Create grid of images & turn mask in 3 channel image for visualization
-    grid = torchvision.utils.make_grid(
-        [out, src, mask.expand(3, -1, -1), crop],
-        nrow=2,
-    )
-    # permute to PIL HxWxC format
-    plt.imshow(grid.permute(1, 2, 0))
-    plt.show()
-    loader = DataLoader(dataset, batch_size=5, num_workers=8)
+    loader = DataLoader(dataset, batch_size=2, shuffle=True, collate_fn=collate_fn)
 
-    for img, src, msk in loader:
-        print(img[0][0].shape)
-        print(src[0][0].shape)
-        print(msk[0][0].shape)
-        break
+    for batch in loader:
+        print("Batch_Size:", batch.shape)
+        # plt.imshow(batch[0].permute(1, 2, 0))
+        # plt.show()
+        # break
