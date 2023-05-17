@@ -168,7 +168,7 @@ class VQLatentSNAIL(PixelSNAIL):
 
         return OrderedDict(loss=nll)
 
-    def sample(self, n, img_size=(64, 64)):
+    def sample(self, n, img_size=(128, 128)):
         device = next(self.parameters()).device
         samples = torch.zeros(n, *img_size).long().to(device)
 
