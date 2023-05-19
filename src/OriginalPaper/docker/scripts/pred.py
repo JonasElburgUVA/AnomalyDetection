@@ -88,14 +88,12 @@ def reconstruct(n, img, cond = None, threshold_log_p = 5):
         samples = codes.clone().unsqueeze(1).repeat(1,n,1,1).reshape(img.shape[0]*n,*code_size)
         cond_repeat = cond.unsqueeze(1).repeat(1,n,1).reshape(img.shape[0]*n,-1)
 
-        logits = model.forward_latent(samples, cond_repeat)
-
         for r in range(code_size[0]):
             for c in range(code_size[1]):
-                code_logits = logits[:, :, r, c]
+                logits = model.forward_latent(samples, cond_repeat)[:, :, r, c]
+                loss = F.cross_entropy(logits, samples[:, r, c], reduction='none')
 
-                loss = F.cross_entropy(code_logits, samples[:, r, c], reduction='none')
-                probs = F.softmax(code_logits, dim=1)
+                probs = F.softmax(logits, dim=1)
 
                 samples[loss > threshold_log_p, r, c] = torch.multinomial(probs, 1).squeeze(-1)[loss > threshold_log_p]
 
