@@ -127,6 +127,6 @@ if __name__ == "__main__":
 
     for batch in loader:
         print("Batch_Size:", batch.shape)
-        # plt.imshow(batch[0].permute(1, 2, 0))
-        # plt.show()
-        # break
+        plt.imshow(batch[0].permute(1, 2, 0))
+        plt.show()
+        break

@@ -22,3 +22,13 @@ Run experiments (evaluation)
 python docker/scripts/pred.py -i "/home/lcur1720/dl2/AnomalyDetection/brain_toy/toy" -o "/home/lcur1720/dl2/AnomalyDetection/output/full/sample" -mode "sample" -d "brain"
 python docker/scripts/pred.py -i "/home/lcur1720/dl2/AnomalyDetection/brain_toy/toy" -o "/home/lcur1720/dl2/AnomalyDetection/output/full/pixel" -mode "pixel" -d "brain"
 ```
+
+
+```
+python src/scripts/create_ff_splits.py --split_dir "./data/splits/" --image_path "./data/original_sequences/youtube/raw/images/"
+
+python src/scripts/create_ff_splits.py --split_dir "./data/splits/" --image_path "./data/manipulated_sequences/Deepfakes/raw/images/" --is_deepfake
+
+python src/scripts/create_ff_splits.py --split_dir "./data/splits/" --image_path "./data/manipulated_sequences/Deepfakes/masks/images/" --is_deepfake
+
+```
