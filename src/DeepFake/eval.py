@@ -20,14 +20,17 @@ import json
 
 from scipy import stats
 
-with open('data/output/FFHQ/scores.json') as s:
+scores_dir = '/home/lcur1737/AnomalyDetection/data/output/'
+
+with open(scores_dir+'scores.json') as s:
     scores = json.load(s)
 
-res = defaultdict(lambda: {'auroc' : None, 'ap' : None})
+res = defaultdict(lambda: {'auroc': None, 'ap': None})
 for dif in scores.keys():
-    
     # In the folders, 0 is anomalous and 1 is real
-    labels = len(scores[dif]['0'].values())*[1] + len(scores[dif]['1'].values())*[0]
+    labels = len(scores[dif]['0'].values())*[1] + \
+        len(scores[dif]['1'].values())*[0]
+        
     pred = list(scores[dif]['0'].values()) + list(scores[dif]['1'].values())
     auroc = metrics.roc_auc_score(labels, pred)
     res[dif]['auroc'] = auroc
@@ -40,7 +43,11 @@ for dif in scores.keys():
     print(f"area under roc curve: {auroc}")
     print(f"mean score anomalous: {np.mean(list(scores[dif]['0'].values()))}")
     print(f"mean score real: {np.mean(list(scores[dif]['1'].values()))}")
-    t, p = stats.ttest_ind(list(scores[dif]['0'].values()), list(scores[dif]['1'].values()))
+    t, p = stats.ttest_ind(
+        list(scores[dif]['0'].values()), list(scores[dif]['1'].values()))
     print(f"t-test - t: {t}, p: {p}")
+
+with open(os.path.join(scores_dir, "metrics.json"), "w") as write_file:
+    json.dump(res, write_file)
 
 # print(res)
