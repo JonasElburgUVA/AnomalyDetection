@@ -11,6 +11,7 @@ from tqdm import tqdm
 import torch.nn.functional as F
 from PIL import Image
 import json
+from collections import defaultdict
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -65,7 +66,7 @@ if __name__ == "__main__":
 
     # LOAD DATA
     transform = transforms.Compose([
-        transforms.Resize(128),
+        transforms.Resize((128,128)),
         transforms.ToTensor(),
     ])
     # eval_set = ImageFolder(input_dir, transform=transform)
@@ -74,15 +75,20 @@ if __name__ == "__main__":
     # PREDICT
     # if mode == "sample":
     with torch.no_grad():
-        predictions = {'0' : {}, '1' : {}}
-        for i in os.listdir(input_dir):
-            for f in tqdm(os.listdir(os.path.join(input_dir, i))):
-                img = Image.open(os.path.join(input_dir,i, f))
-                img = torch.unsqueeze(transform(img).to(device), 0)
-                loss = ar_net.loss(img, reduction="none")["loss"].flatten(1)
-                scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
-                score = scores.sum()
-                predictions[i][f] = score.detach().cpu().numpy().tolist()
+        predictions = defaultdict(lambda: {'0' : {}, '1' : {}})
+        for dif in os.listdir(input_dir):
+            for i in os.listdir(os.path.join(input_dir, dif)):
+                for f in tqdm(os.listdir(os.path.join(input_dir,dif, i))):
+                    img = Image.open(os.path.join(input_dir,dif,i, f))
+                    img = torch.unsqueeze(transform(img).to(device), 0)
+                    print(img.shape)
+                    loss = ar_net.loss(img, reduction="none")["loss"]
+                    print(loss.shape)
+                    loss = loss.flatten(1)
+                    print(loss.shape)
+                    scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
+                    score = scores.sum()
+                    predictions[dif][i][f] = score.detach().cpu().numpy().tolist()
 
         with open(os.path.join(output_dir, "scores.json"), "w") as write_file:
             json.dump(predictions, write_file)
