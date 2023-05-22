@@ -15,4 +15,11 @@ module load Anaconda3/2022.05
 
 source activate vqvae
 
-srun python -u scripts/download_faceforensics.py data/ --server EU -d original -c raw
+srun python -u scripts/download_faceforensics.py data/ --server EU2 -d original -c raw
+
+srun python -u scripts/download_faceforensics.py data/ --server EU2 -d Deepfakes -c raw
+srun python -u scripts/download_faceforensics.py data/ --server EU2 -d Deepfakes -t masks -c raw
+
+# srun python -u scripts/download_faceforensics.py data/ --server EU2 -d DeepFakeDetection_original -c raw
+# srun python -u scripts/download_faceforensics.py data/ --server EU2 -d DeepFakeDetection -c raw
+# srun python -u scripts/download_faceforensics.py data/ --server EU2 -d DeepFakeDetection -t masks -c raw

@@ -34,7 +34,7 @@ DATASETS = {
     'FaceShifter': 'manipulated_sequences/FaceShifter',
     'FaceSwap': 'manipulated_sequences/FaceSwap',
     'NeuralTextures': 'manipulated_sequences/NeuralTextures'
-    }
+}
 ALL_DATASETS = ['original', 'DeepFakeDetection_original', 'Deepfakes',
                 'DeepFakeDetection', 'Face2Face', 'FaceShifter', 'FaceSwap',
                 'NeuralTextures']
@@ -91,7 +91,7 @@ def parse_args():
     args.tos_url = server_url + 'webpage/FaceForensics_TOS.pdf'
     args.base_url = server_url + 'v3/'
     args.deepfakes_model_url = server_url + 'v3/manipulated_sequences/' + \
-                               'Deepfakes/models/'
+        'Deepfakes/models/'
 
     return args
 
@@ -136,12 +136,12 @@ def download_file(url, out_file, report_progress=False):
 
 def main(args):
     # TOS
-    print('By pressing any key to continue you confirm that you have agreed '\
+    print('By pressing any key to continue you confirm that you have agreed '
           'to the FaceForensics terms of use as described at:')
     print(args.tos_url)
     print('***')
     print('Press any key to continue, or CTRL-C to exit.')
-    _ = input('')
+    # _ = input('')
 
     # Extract arguments
     c_datasets = [args.dataset] if args.dataset != 'all' else ALL_DATASETS
@@ -162,7 +162,7 @@ def main(args):
                 print('Please be patient, this may take a while (~40gb)')
                 suffix = ''
             else:
-            	suffix = 'info'
+                suffix = 'info'
 
             download_file(args.base_url + '/' + dataset_path,
                           out_file=join(output_path,
@@ -176,23 +176,23 @@ def main(args):
 
         # Get filelists and video lenghts list from server
         if 'DeepFakeDetection' in dataset_path or 'actors' in dataset_path:
-        	filepaths = json.loads(urllib.request.urlopen(args.base_url + '/' +
-                DEEPFEAKES_DETECTION_URL).read().decode("utf-8"))
-        	if 'actors' in dataset_path:
-        		filelist = filepaths['actors']
-        	else:
-        		filelist = filepaths['DeepFakesDetection']
+            filepaths = json.loads(urllib.request.urlopen(args.base_url + '/' +
+                                                          DEEPFEAKES_DETECTION_URL).read().decode("utf-8"))
+            if 'actors' in dataset_path:
+                filelist = filepaths['actors']
+            else:
+                filelist = filepaths['DeepFakesDetection']
         elif 'original' in dataset_path:
             # Load filelist from server
             file_pairs = json.loads(urllib.request.urlopen(args.base_url + '/' +
-                FILELIST_URL).read().decode("utf-8"))
+                                                           FILELIST_URL).read().decode("utf-8"))
             filelist = []
             for pair in file_pairs:
-            	filelist += pair
+                filelist += pair
         else:
             # Load filelist from server
             file_pairs = json.loads(urllib.request.urlopen(args.base_url + '/' +
-                FILELIST_URL).read().decode("utf-8"))
+                                                           FILELIST_URL).read().decode("utf-8"))
             # Get filelist
             filelist = []
             for pair in file_pairs:
@@ -201,8 +201,8 @@ def main(args):
                     filelist.append('_'.join(pair[::-1]))
         # Maybe limit number of videos for download
         if num_videos is not None and num_videos > 0:
-        	print('Downloading the first {} videos'.format(num_videos))
-        	filelist = filelist[:num_videos]
+            print('Downloading the first {} videos'.format(num_videos))
+            filelist = filelist[:num_videos]
 
         # Server and local paths
         dataset_videos_url = args.base_url + '{}/{}/{}/'.format(
