@@ -87,21 +87,12 @@ if __name__ == "__main__":
         for difficulty in os.listdir(data_dir):
             for real_or_fake in os.listdir(os.path.join(data_dir, difficulty)):
                 for file_id in tqdm(os.listdir(os.path.join(data_dir, difficulty, real_or_fake))):
-                    img = Image.open(os.path.join(
-                        data_dir, difficulty, real_or_fake, file_id))
+                    img = Image.open(os.path.join(data_dir, difficulty, real_or_fake, file_id))
                     img = torch.unsqueeze(transform(img).to(device), 0)
-                    print(img.shape)
-
-                    loss = ar_net.loss(img, reduction="none")[
-                        "loss"].flatten(1)
-                    print(loss.shape)
-
-                    scores = torch.sum(
-                        loss * (loss > parameters["threshold_sample"]), 1).float()
+                    loss = ar_net.loss(img, reduction="none")["loss"].flatten(1)
+                    scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
                     score = scores.sum()
-
-                    predictions[difficulty][real_or_fake][file_id] = score.detach(
-                    ).cpu().numpy().tolist()
+                    predictions[difficulty][real_or_fake][file_id] = score.detach().cpu().numpy().tolist()
 
         with open(os.path.join(output_dir, "scores.json"), "w") as write_file:
             json.dump(predictions, write_file)
