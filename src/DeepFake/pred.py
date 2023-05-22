@@ -9,7 +9,8 @@ from torchvision.datasets import ImageFolder
 import torchvision.transforms as transforms
 from tqdm import tqdm
 import torch.nn.functional as F
-
+from PIL import Image
+import json
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -67,20 +68,44 @@ if __name__ == "__main__":
         transforms.Resize(128),
         transforms.ToTensor(),
     ])
-    eval_set = ImageFolder(input_dir, transform=transform)
-    eval_loader = DataLoader(eval_set, batch_size=8, shuffle=False, num_workers=0)
+    # eval_set = ImageFolder(input_dir, transform=transform)
+    # eval_loader = DataLoader(eval_set, batch_size=8, shuffle=False, num_workers=0)
 
     # PREDICT
     # if mode == "sample":
     with torch.no_grad():
-        scores = []
-        for i, (img, _) in tqdm(enumerate(eval_loader)):
-            img.to(device)
-            loss = ar_net.loss(img, reduction="none")["loss"].flatten(1)
-            scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
-            score = scores.sum() / 2000
-            with open(os.path.join(output_dir,str(i)+ "score.txt"), "w") as write_file:
-                write_file.write(str(score))
+        predictions = {'0' : {}, '1' : {}}
+        for i in os.listdir(input_dir):
+            for f in tqdm(os.listdir(os.path.join(input_dir, i))):
+                img = Image.open(os.path.join(input_dir,i, f))
+                img = torch.unsqueeze(transform(img).to(device), 0)
+                loss = ar_net.loss(img, reduction="none")["loss"].flatten(1)
+                scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
+                score = scores.sum()
+                predictions[i][f] = score.detach().cpu().numpy().tolist()
+
+        with open(os.path.join(output_dir, "scores.json"), "w") as write_file:
+            json.dump(predictions, write_file)
+
+    # elif mode == "pixel":
+    #     with torch.no_grad():
+    #      for img in tqdm(os.listdir(input_dir)):
+    #         img = Image.open(os.path.join(input_dir, img))
+    #         img = torch.unsqueeze(transform(img).to(device), 0)
+    #         x_tilde, z_tilde = reconstruct(15, img, threshold_log_p = parameters["threshold_pixel_correct"])
+              
+#             x_tilde = -smooth(-x_tilde.unsqueeze(0).unsqueeze(0)).squeeze()  
+
+
+    # with torch.no_grad():
+    #     scores = []
+    #     for i, (img, _) in tqdm(enumerate(eval_loader)):
+    #         img.to(device)
+    #         loss = ar_net.loss(img, reduction="none")["loss"].flatten(1)
+    #         scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
+    #         score = scores.sum() / 2000
+    #         with open(os.path.join(output_dir,str(i)+ "score.txt"), "w") as write_file:
+    #             write_file.write(str(score))
 
 
 
