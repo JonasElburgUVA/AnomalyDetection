@@ -1,14 +1,11 @@
 import os
+import random
 
 import torch
-from torch.utils.data import Dataset
-
-from torchvision import transforms
-import torchvision.transforms.functional as tf
 
 from PIL import Image
-import random
-import numpy as np
+from torchvision import transforms
+from torch.utils.data import Dataset
 
 
 """
@@ -34,39 +31,25 @@ import numpy as np
 
 class FaceForensicsDataset(Dataset):
     """Images are sized 720x1280 (HxW)"""
-
-    def __init__(
-        self, data_dir, split, compression="raw", sample_number=64, deepfakes=False
-    ) -> None:
+    def __init__(self, data_dir, split, sample_number=64, transform=None) -> None:
         super().__init__()
 
         if split not in ["train", "dev", "test"]:
             raise NotImplemented("Invalid split. Available split are: train, test, dev")
 
-        if deepfakes:
-            self.path = os.path.join(
-                data_dir,
-                "manipulated_sequences",
-                "Deepfakes",
-                compression,
-                "images",
-                split,
-            )
-        else:
-            self.path = os.path.join(
-                data_dir, "original_sequences", "youtube", compression, "images", split
-            )
+        self.path = os.path.join(data_dir, split)
         self.files = sorted(os.listdir(self.path))
         self.sample_number = sample_number
         self.length_limit = min(
             [len(os.listdir(os.path.join(self.path, f))) for f in self.files]
         )
+
         assert (
             self.sample_number <= self.length_limit
         ), f"Sample number exceeds shortest video length {self.length_limit}"
 
         self.transform = transform
-        self.to_tensor = transforms.PILToTensor()
+        self.to_tensor = transforms.ToTensor()
 
     def __len__(self):
         return len(self.files)
@@ -76,17 +59,18 @@ class FaceForensicsDataset(Dataset):
         Returns batch of frames of a Deepfaked video shaped BxLxCxHxW, where L is the sample_number
         """
         fname = self.files[idx]
-        dir = os.path.join(self.path, fname)
-        frames = os.listdir(dir)
-        frames = random.sample(os.listdir(dir), k=self.sample_number)
-        img_batch = torch.stack(
-            [self.to_tensor(Image.open(os.path.join(dir, f))) for f in frames]
-        )
+        video_dir = os.path.join(self.path, fname)
 
-        if self.transform is not None:
-            img_batch = self.transform(img_batch)
+        frames = os.listdir(video_dir)
+        frames = random.sample(os.listdir(video_dir), k=self.sample_number)
 
-        return img_batch
+        batch_transform = self.transform if self.transform else self.to_tensor     
+
+        return torch.stack([
+            batch_transform(
+                Image.open(os.path.join(video_dir, f))
+            ) for f in frames
+        ])
 
 
 def collate_fn(batch):
@@ -94,6 +78,7 @@ def collate_fn(batch):
     # Return the flattened batch
     stacked_batch = torch.stack(batch)
     flattened_batch = stacked_batch.view(-1, *stacked_batch.shape[2:])
+
     # Shuffle the flattened batch
     indices = torch.randperm(flattened_batch.size(0))
     batch = flattened_batch[indices]
@@ -102,9 +87,8 @@ def collate_fn(batch):
 
 
 if __name__ == "__main__":
-    from torch.utils.data import DataLoader
     import matplotlib.pyplot as plt
-    import torchvision
+    from torch.utils.data import DataLoader
 
     seed = 42
     torch.manual_seed(seed)
@@ -116,17 +100,20 @@ if __name__ == "__main__":
             transforms.Resize(
                 (126, 224), antialias=None
             ),  # resize the image to whatever
+            transforms.ToTensor()
         ]
     )
 
     dataset = FaceForensicsDataset(
-        "./data", split="train", compression="raw", sample_number=10, deepfakes=False
+        "./data", split="train", sample_number=10, transform=transform
     )
 
     loader = DataLoader(dataset, batch_size=2, shuffle=True, collate_fn=collate_fn)
 
     for batch in loader:
         print("Batch_Size:", batch.shape)
+
         plt.imshow(batch[0].permute(1, 2, 0))
         plt.show()
+
         break

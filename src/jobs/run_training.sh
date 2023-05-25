@@ -11,6 +11,9 @@
 
 module purge
 
+module load 2022
+module load Anaconda3/2022.05
+
 source activate vae
 
 srun python DeepFake/train.py

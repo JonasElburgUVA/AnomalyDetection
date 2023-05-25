@@ -16,7 +16,10 @@ def train(model, train_loader, optimizer, device, log_recon_metrics=False):
     batch_sizes = []
     train_ssim, train_psnr = [], []
 
-    for img, _ in tqdm(train_loader):
+    for img in tqdm(train_loader):
+        if type(img) == list:
+            img, _ = img
+
         loss = model.loss(img.to(device))
 
         optimizer.zero_grad()
@@ -50,7 +53,10 @@ def eval_loss(model, data_loader, device, log_recon_metrics=False):
     val_ssim, val_psnr = [], []
 
     with torch.no_grad():
-        for img, _ in data_loader:
+        for img in data_loader:
+            if type(img) == list:
+                img, _ = img
+
             loss = model.loss(img.to(device))
 
             if log_recon_metrics:
