@@ -71,6 +71,7 @@ python src/scripts/create_ff_splits.py \
 #### Data Folder setup
 
 Once you've downloaded and preprocessed the datasets you should organize them so that the directories are structured like this:
+
 ```
 data
 ├── faceforensics
@@ -104,33 +105,39 @@ data
         ├── 0
         └── 1
 ```
+
 Note on 'val_pruned': Since the validation set is only used for finding the optimal threshold value, the set was decreased in size in our experiments. The script for this can be found in the repository. However, this step is optional.
 
 You will also need an output folder with the following structure. This can be placed within the data folder.
+
 ```
 output
 ├── faceforensics
 └── ffhq
 ```
-Finally, the checkpoints should be in the same folder, and should follow the naming convention {dataset}_{model}.pt. Here dataset can be either 'ffhq' or 'faceforensics', and model can be either 'vqvae' or 'ar'.
 
+Finally, the checkpoints should be in the same folder, and should follow the naming convention {dataset}_{model}.pt. Here dataset can be either 'ffhq' or 'faceforensics', and model can be either 'vqvae' or 'ar'.
 
 ## Running Experiments
 
 Assuming you have downloaded the `brain_toy.zip` data you can unpack it with `unzip brain_toy.zip -d data/toy` and run experiments using the following commands:
 
 ```sh
-python docker/scripts/pred.py \
+python src/OriginalPaper/docker/scripts/pred.py \
     -i "data/brain_toy/toy" \
     -o "output/full/sample" \
     -mode "sample" \
-    -d "brain"
+    -d "brain" \
+    --checkpoint_features "checkpoints/brain/vqvae.pt" \
+    --checkpoint_latent "checkpoints/brain/ar.pt"
 
-python docker/scripts/pred.py \
+python src/OriginalPaper/docker/scripts/pred.py \
     -i "data/brain_toy/toy" \
     -o "output/full/pixel" \
     -mode "pixel" \
-    -d "brain"
+    -d "brain" \
+    --checkpoint_features "checkpoints/brain/vqvae.pt" \
+    --checkpoint_latent "checkpoints/brain/ar.pt"
 ```
 
 For the **real/deepfake experiments** refer to the notebook

@@ -32,3 +32,10 @@ gdown 1MXiYTViwgUMo0pwwMR4kkuRS6ZU9Wez4 -O checkpoints/faceforensics/ar.pt
 # Datasets
 mkdir data
 mkdir output
+
+# Output folders
+mkdir -p output/full/sample
+mkdir -p output/full/pixel
+
+mkdir -p output/faceforensics
+mkdir -p output/ffhq
