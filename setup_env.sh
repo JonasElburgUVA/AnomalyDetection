@@ -18,16 +18,16 @@ mkdir -p checkpoints/ffhq
 mkdir -p checkpoints/faceforensics
 
 # Brain checkpoints
-gdown 1nAh81s142xzE5VUf-tZibq-pIUaqoLiU -O checkpoints/brain/vqvae.pt
-gdown 1RgQ1bpRn0zrJRSC2sqG5GyywNgYdw4Zx -O checkpoints/brain/ar.pt
+gdown 1WaECO8w_NkR0sgp6z6itGgn-U1NyaxET -O checkpoints/brain/vqvae.pt
+gdown 1oYxI0gPqKwWjP-oV6cJ9wPN-y0ScU8aH -O checkpoints/brain/ar.pt
 
 # FFHQ Checkpoints
-gdown 1VsFMxSJEsxjhcXVseDTK6dydBKdUZ1w1 -O checkpoints/ffhq/vqvae.pt
-gdown 1bEtV6NktUtgyOqd-rpuWS6pA4VJ12Eke -O checkpoints/ffhq/ar.pt
+gdown 10BWRqmzS6k7ZfXTlebh9FK0oa-AbJ3e6 -O checkpoints/ffhq/vqvae.pt
+gdown 1lwTMQphz3WZnQSOdkqgqUliF-Xs_Vm4l -O checkpoints/ffhq/ar.pt
 
 # Face Forensics checkpoints
-gdown 1orYcmEfAiSBzMiuSJeAOGBK1kKN3_fG4 -O checkpoints/faceforensics/vqvae.pt
-gdown 1MXiYTViwgUMo0pwwMR4kkuRS6ZU9Wez4 -O checkpoints/faceforensics/ar.pt
+gdown 1p_0RtYlVEOalJ9_VqmpJbrUf-CQ84mNx -O checkpoints/faceforensics/vqvae.pt
+gdown 1qNx_0qLKgK2lo7EZhPlmTEitH8So-75n -O checkpoints/faceforensics/ar.pt
 
 # Datasets
 mkdir data
