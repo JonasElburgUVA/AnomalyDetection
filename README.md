@@ -65,11 +65,50 @@ python src/scripts/create_ff_splits.py \
 
 #### Data Folder setup
 
-Once you've downloaded and preprocessed the datasets you should organize them in the following folder structure:
+Once you've downloaded and preprocessed the datasets you should organize them so that the directories are structured like this:
 
-```
-# FILL ME
-```
+data
+├── faceforensics
+│   ├── test
+│   │   ├── fake
+│   │   │   └── XXX_YYY
+│   │   └── real
+│   │       └── ZZZ
+│   ├── val
+│   │   ├── fake
+│   │   │   └── XXX_YYY
+│   │   └── real
+│   │       └── ZZZ
+│   └── val_pruned
+│       ├── fake
+│       │   └── XXX_YYY
+│       └── real
+│           └── ZZZ
+└── ffhq
+    ├── test
+    │   ├── easy
+    │   │   ├── 0
+    │   │   └── 1
+    │   ├── hard
+    │   │   ├── 0
+    │   │   └── 1
+    │   └── medium
+    │       ├── 0
+    │       └── 1
+    └── val
+        ├── 0
+        └── 1
+
+Note on 'val_pruned': Since the validation set is only used for finding the optimal threshold value, the set was decreased in size in our experiments. The script for this can be found in the repository. However, this step is optional.
+
+You will also need an output folder with the following structure. This can be placed within the data folder.
+
+output
+├── faceforensics
+└── ffhq
+
+Finally, the checkpoints should be in the same folder, and should follow the naming convention {dataset}_{model}.pt. Here dataset can be either 'ffhq' or 'faceforensics', and model can be either 'vqvae' or 'ar'.
+
 
 ## Running Experiments
 
