@@ -26,22 +26,32 @@ if __name__ == "__main__":
     with open(os.path.join(pred_dir, f"{dataset}", f"scores_{split}.json")) as s:
         scores = json.load(s)
 
-    res = defaultdict(lambda: defaultdict(lambda: {'auroc': None, 'ap': None}))
+    res = {}
     thresholds = list(scores.keys())
-    print(f"threshods: {thresholds}")
+    print(f"thresholds: {thresholds}")
     if dataset == 'ffhq':
         for thr in thresholds:
             thr = str(thr)
-            for dif in ['easy', 'medium', 'hard']:
-                labels = np.concatenate(scores[thr][dif]['labels'])
-                preds = np.concatenate(scores[thr][dif]['scores'])
+            res[thr] = defaultdict(lambda: {'auroc' : None, 'ap': None})
+            if split == 'test':
+                for dif in ['easy', 'medium', 'hard']:
+                    labels = np.concatenate(scores[thr][dif]['labels'])
+                    preds = np.concatenate(scores[thr][dif]['scores'])
+
+                    auroc = metrics.roc_auc_score(labels,preds)
+                    ap = metrics.average_precision_score(labels,preds, pos_label=1)
+                    print(f"threshold: {thr}, difficulty: {dif}, auroc: {auroc}, ap: {ap}")
+                    res[thr][dif]['auroc'] = auroc
+                    res[thr][dif]['ap'] = ap
+            elif split == 'val':
+                labels = np.concatenate(scores[thr]['labels'])
+                preds = np.concatenate(scores[thr]['scores'])
 
                 auroc = metrics.roc_auc_score(labels,preds)
                 ap = metrics.average_precision_score(labels,preds, pos_label=1)
-                print(f"threshold: {thr}, difficulty: {dif}, auroc: {auroc}, ap: {ap}")
-
-            res[thr][dif]['auroc'] = auroc
-            res[thr][dif]['ap'] = ap
+                print(f"threshold: {thr}, auroc: {auroc}, ap: {ap}")
+                res[thr]['auroc'] = auroc
+                res[thr]['ap'] = ap
 
     elif dataset == 'faceforensics':
         res = defaultdict(lambda: {'auroc' : None, 'ap': None})
@@ -56,28 +66,6 @@ if __name__ == "__main__":
             res[thr]['auroc'] = auroc
             res[thr]['ap'] = ap
     print(res.items())
-        # for dif in scores.keys():
-        #     # In the folders, 0 is anomalous and 1 is real
-        #     labels = len(scores[dif]['0'].values())*[1] + \
-        #         len(scores[dif]['1'].values())*[0]
-                
-        #     pred = list(scores[dif]['0'].values()) + list(scores[dif]['1'].values())
-        #     auroc = metrics.roc_auc_score(labels, pred)
-        #     res[dif]['auroc'] = auroc
 
-        #     ap = metrics.average_precision_score(labels, pred)
-        #     res[dif]['ap'] = ap
-
-        #     print("\n", dif)
-        #     print(f"average precision: {ap}")
-        #     print(f"area under roc curve: {auroc}")
-        #     print(f"mean score anomalous: {np.mean(list(scores[dif]['0'].values()))}")
-        #     print(f"mean score real: {np.mean(list(scores[dif]['1'].values()))}")
-        #     t, p = stats.ttest_ind(
-        #         list(scores[dif]['0'].values()), list(scores[dif]['1'].values()))
-        #     print(f"t-test - t: {t}, p: {p}")
-
-        # with open(os.path.join(scores_dir, "metrics.json"), "w") as write_file:
-        #     json.dump(res, write_file)
-
-        # # print(res)
+    with open(os.path.join(output_dir, dataset, f"metrics_{split}.json"), "w") as write_file:
+        json.dump(res, write_file)
