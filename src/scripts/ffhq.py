@@ -17,7 +17,7 @@ random.seed(42)
 
 data_files = glob.glob(os.path.join(args.dataset_path, "*.png"))
 validation_files = random.sample(data_files, k=int(0.05 * len(data_files)))
-validation_folder = os.path.join(args.dataset_path, os.path.join("validation", "regular"))
+validation_folder = os.path.join(args.dataset_path, os.path.join("holdout", "regular"))
 
 for file_path in validation_files:
     filename = file_path.split("/")[-1]
