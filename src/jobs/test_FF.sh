@@ -16,4 +16,4 @@ module load Anaconda3/2022.05
 source activate vqvae
 
 # run from user home directory
-python -u AnomalyDetection/src/DeepFake/pred.py --data_dir data --cp_dir data/checkpoints -o data/output -dataset faceforensics --split test
+python -u AnomalyDetection/src/DeepFake/pred.py --data_dir data --cp_dir data/checkpoints -o data/output -dataset faceforensics --split test --ld 7

@@ -17,3 +17,4 @@ source activate vqvae
 
 # run from user home directory
 python -u AnomalyDetection/src/DeepFake/pred.py --data_dir data --cp_dir data/checkpoints -o data/output -dataset faceforensics --split val --pruned True --thresholds 5 6 7 8 9
+python -u AnomalyDetection/src/DeepFake/eval.py --pred_dir data/output --output_dir data/output --dataset faceforensics --split val

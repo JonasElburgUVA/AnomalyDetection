@@ -16,4 +16,4 @@ module load Anaconda3/2022.05
 source activate vqvae
 
 # run from user home directory
-python -u AnomalyDetection/src/DeepFake/eval.py --pred_dir data/output --output_dir data/output --dataset ffhq --split test
+python -u AnomalyDetection/src/DeepFake/eval.py --pred_dir data/output --output_dir data/output --dataset ffhq --split val
