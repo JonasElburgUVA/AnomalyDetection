@@ -15,46 +15,68 @@ from collections import defaultdict
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", required=True, type=str)
-    parser.add_argument("-o", "--output", required=True, type=str)
+    parser.add_argument("--data_dir", required=True, type=str, help="Path to data directory")
+    parser.add_argument("--cp_dir", required=True, type=str, help="Path to checkpoint directory")
+    parser.add_argument("-o", "--output", required=True, type=str, help="Path to output directory")
     parser.add_argument("-dataset", type=str, default="faceforensics", choices=["ffhq", "faceforensics"])
     parser.add_argument("-mode", type=str, default="sample",
                         help="can be either 'pixel' or 'sample'.", required=False)
     parser.add_argument("--no_gpu", type=bool, default=False,
                         help="Do not use gpu", required=False)
+    parser.add_argument("--split", type=str, default="test")
+    parser.add_argument("--pruned", type=bool, default=False, help="Use pruned dataset for faceforensics")
+    # parser.add_argument("--cutoff", type=int, default=15, help="Cutoff for pruned dataset")
+    parser.add_argument("--ld", type=float, default=7, help="sample-wise threshold value")
+    parser.add_argument("--thresholds", type=list, default=[5, 6, 7, 8, 9, 10], help="sample-wise threshold values for hyperparameter search")
+
 
     args = parser.parse_args()
 
     data_dir = args.data_dir
     output_dir = args.output
+    cp_dir = args.cp_dir
     dataset = args.dataset
     mode = args.mode
     no_gpu = args.no_gpu
-
+    split = args.split
+    pruned = args.pruned
+    # cutoff = args.cutoff
+    lambda_ = args.ld
+    thresholds = args.thresholds
+    txt_to_label = {'real': 0, 'fake': 1}
+    difficulties = ['easy', 'medium', 'hard'] # only applicable to FFHQ
+    if pruned:
+        pr = "_pruned"
+    else:
+        pr = ""
+    if split == "test":
+        thresholds = [lambda_]
+    else:
+        thresholds = thresholds
     if no_gpu:
         device = torch.device('cpu')
     else:
-        device = torch.device('cuda')
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 
     # DATASET SPECIFIC SETTINGS
-    if dataset == "ffhq":
-        parameters = {"threshold_sample": 7,
-                    "threshold_pixel_correct": 7,
-                    "checkpoint_features": 'AnomalyDetection/src/DeepFake/checkpoints/ffhq_continued_020.pt',
-                    "checkpoint_latent": 'AnomalyDetection/src/DeepFake/checkpoints/ffhq_ar_030.pt',
-                    "vq_net": {"d": 3, "n_channels": (16, 32, 64, 256), "code_size": 128, "n_res_block": 2},
-                    "ar_net": {"shape": (16, 16), "n_block": 4, "n_res_block": 4, "n_channels": 128}
-                    }
 
-    elif dataset == "faceforensics":
-        parameters = {"threshold_sample": 7,
-                    "threshold_pixel_correct": 7,
-                    "checkpoint_features": 'src/DeepFake/checkpoints/faceforensics_vqvae_200.pt',
-                    "checkpoint_latent": 'src/DeepFake/checkpoints/faceforensics_ar_200.pt',
-                    "vq_net": {"d": 3, "n_channels": (16, 32, 64, 256), "code_size": 128, "n_res_block": 2},
-                    "ar_net": {"shape": (16, 16), "n_block": 4, "n_res_block": 4, "n_channels": 128}
-                    }
+    parameters = {"threshold_sample": lambda_,
+                # "threshold_pixel_correct": 7,
+                "checkpoint_features": os.path.join(cp_dir,f'{dataset}_vqvae.pt'),
+                "checkpoint_latent": os.path.join(cp_dir,f'{dataset}_ar.pt'),
+                "vq_net": {"d": 3, "n_channels": (16, 32, 64, 256), "code_size": 128, "n_res_block": 2},
+                "ar_model": {"shape": (16, 16), "n_block": 4, "n_res_block": 4, "n_channels": 128}
+                }
+
+    # elif dataset == "faceforensics":
+    #     parameters = {"threshold_sample": lambda_,
+    #                 # "threshold_pixel_correct": 7,
+    #                 "checkpoint_features": 'src/DeepFake/checkpoints/faceforensics_vqvae_200.pt',
+    #                 "checkpoint_latent": 'src/DeepFake/checkpoints/faceforensics_ar_200.pt',
+    #                 "vq_net": {"d": 3, "n_channels": (16, 32, 64, 256), "code_size": 128, "n_res_block": 2},
+    #                 "ar_model": {"shape": (16, 16), "n_block": 4, "n_res_block": 4, "n_channels": 128}
+    #                 }
 
     vq_checkpoint = torch.load(
         parameters["checkpoint_features"], map_location=device)["model"]
@@ -67,15 +89,15 @@ if __name__ == "__main__":
     vq_net.load_state_dict(torch.load(
         parameters["checkpoint_features"], map_location=device)["model"])
 
-    ar_net = nets_LV.VQLatentSNAIL(
+    ar_model = nets_LV.VQLatentSNAIL(
         feature_extractor_model=vq_net,
         shape=(16, 16),
         n_block=4,
         n_res_block=4,
         n_channels=128
     ).to(device)
-    ar_net.eval()
-    ar_net.load_state_dict(torch.load(
+    ar_model.eval()
+    ar_model.load_state_dict(torch.load(
         parameters["checkpoint_latent"], map_location=device)["model"])
     
     # INITIALIZE SMOOTHING OF PIXEL PREDICTIONS not sure if this is needed; only used for restoring the image
@@ -90,72 +112,50 @@ if __name__ == "__main__":
         transforms.Resize((128, 128)),
         transforms.ToTensor(),
     ])
+    if dataset == "ffhq":
+        ffhq_sets = {}
+        ffhq_loaders = {}
+        for dif in difficulties:
+            ffhq_sets[dif]= ImageFolder(os.path.join(data_dir, dataset, split, dif), transform=transform)
+            ffhq_loaders[dif] = DataLoader(ffhq_sets[dif], batch_size=64, shuffle=False)
+    
+    # For FaceForensics we load data differently, within the prediction loop, since we want to batch all images of the same video together
+
 
     # PREDICT
-    # if mode == "sample":
+    print(f"Making predictions on {split} set of {dataset} with threshold(s) {thresholds}")
+    output_dir = output_dir + f'/{dataset}'
+    predictions = defaultdict(lambda: defaultdict())
+
     if dataset == "ffhq":
-        with torch.no_grad():
-            predictions = defaultdict()
-
-            for difficulty in os.listdir(data_dir):
-                for real_or_fake in os.listdir(os.path.join(data_dir, difficulty)):
-                    for file_id in tqdm(os.listdir(os.path.join(data_dir, difficulty, real_or_fake))):
-                        img = Image.open(os.path.join(data_dir, difficulty, real_or_fake, file_id))
-                        img = torch.unsqueeze(transform(img).to(device), 0)
-                        loss = ar_net.loss(img, reduction="none")["loss"].flatten(1)
-                        scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
-                        score = scores.sum()
-                        predictions[difficulty][real_or_fake][file_id] = score.detach().cpu().numpy().tolist()
-
-            with open(os.path.join(output_dir, "ffhq", "scores.json"), "w") as write_file:
-                json.dump(predictions, write_file)
+        for thr in thresholds:
+            predictions[thr] = {}
+            with torch.no_grad():
+                for dif in difficulties:
+                    print(f"Predicting {dif} images with threshold {thr}")
+                    predictions[thr][dif] = {'scores':[],'labels':[]}
+                    for batch, cl in tqdm(ffhq_loaders[dif]):
+                        loss = ar_model.loss(batch.to(device), reduction="none")["loss"].flatten(1)
+                        scores = torch.sum(loss * (loss > thr), 1).float()
+                        predictions[thr][dif]['scores'].append(scores.detach().cpu().numpy().tolist())
+                        predictions[thr][dif]['labels'].append(cl.detach().cpu().numpy().tolist())
+                        # assert len(predictions[thr][dif]['scores']) == len(predictions[thr][dif]['labels'])
+        with open(os.path.join(output_dir, f"scores_{split}.json"), "w") as write_file:
+            json.dump(predictions, write_file)
 
     elif dataset == "faceforensics":
-        if mode == "sample":
+        input_dir = os.path.join(data_dir, dataset, f'{split}_set{pr}')
+        for thr in thresholds:
+            predictions[thr] = {'scores':[],'labels':[]}
             with torch.no_grad():
-                predictions = defaultdict(lambda: defaultdict(dict))
-                for real_or_fake in os.listdir(data_dir):
-                    for vid in tqdm(os.listdir(os.path.join(data_dir, real_or_fake))):
-                        for file_id in os.listdir(os.path.join(data_dir, real_or_fake, vid)):
-                            img = Image.open(os.path.join(data_dir, real_or_fake, vid, file_id))
-                            img = torch.unsqueeze(transform(img).to(device), 0)
-                            loss = ar_net.loss(img, reduction="none")["loss"].flatten(1)
-                            scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
-                            score = scores.sum()
-                            predictions[real_or_fake][vid][file_id] = score.detach().cpu().numpy().tolist()
-                with open(os.path.join(output_dir, "faceforensics","scores_sample.json"), "w") as write_file:
-                    json.dump(predictions, write_file)
-
-        elif mode == "pixel":
-            with torch.no_grad():
-                predictions = {}
-                for real_or_fake in os.listdir(data_dir):
-                    for vid in os.listdir(os.path.join(data_dir, real_or_fake)):
-                        for file_id in tqdm(os.listdir(os.path.join(data_dir, real_or_fake, vid))):
-                            img = Image.open(os.path.join(data_dir, real_or_fake, vid, file_id))
-                            img = torch.unsqueeze(transform(img).to(device), 0)
-                            x_tilde, z_tilde = ar_net.reconstruct(15, img, threshold_log_p = parameters["threshold_pixel_correct"])
-                            x_tilde = -smooth(-x_tilde.unsqueeze(0).unsqueeze(0)).squeeze()
-                            predictions[real_or_fake][vid][file_id] = x_tilde.detach().cpu().numpy().tolist()
-                with open(os.path.join(output_dir, "faceforensics","scores_pixel.json"), "w") as write_file:
-                    json.dump(predictions, write_file)
-
-
-    # elif mode == "pixel":
-    #     with torch.no_grad():
-    #      for img in tqdm(os.listdir(input_dir)):
-    #         img = Image.open(os.path.join(input_dir, img))
-    #         img = torch.unsqueeze(transform(img).to(device), 0)
-    #         x_tilde, z_tilde = reconstruct(15, img, threshold_log_p = parameters["threshold_pixel_correct"])
-
-#             x_tilde = -smooth(-x_tilde.unsqueeze(0).unsqueeze(0)).squeeze()
-
-    # with torch.no_grad():
-    #     scores = []
-    #     for i, (img, _) in tqdm(enumerate(eval_loader)):
-    #         img.to(device)
-    #         loss = ar_net.loss(img, reduction="none")["loss"].flatten(1)
-    #         scores = torch.sum(loss * (loss > parameters["threshold_sample"]), 1).float()
-    #         score = scores.sum() / 2000
-    #         with open(os.path.join(output_dir,str(i)+ "score.txt"), "w") as write_file:
-    #             write_file.write(str(score))
+                for rf in os.listdir(input_dir):
+                    for img_id in tqdm(os.listdir(os.path.join(input_dir, rf))):
+                        imgdir = os.listdir(os.path.join(input_dir, rf, img_id)) 
+                        batch = torch.stack([transform(Image.open(os.path.join(input_dir, rf, img_id, img))) for img in imgdir]).to(device)
+                        loss = ar_model.loss(batch, reduction="none")["loss"].flatten(1)
+                        scores = torch.sum(loss * (loss > thr), 1).float()
+                        score = scores.mean()
+                        predictions[thr]['scores'].append(score.detach().cpu().numpy().tolist())
+                        predictions[thr]['labels'].append(txt_to_label[rf])
+        with open(os.path.join(output_dir,f"scores_{split}.json"), "w") as write_file:
+            json.dump(predictions, write_file)
