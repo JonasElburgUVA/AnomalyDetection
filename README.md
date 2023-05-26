@@ -22,10 +22,15 @@ The original paper's workd was made in the context of the [MOOD challenge](http:
 
 #### FFHQ
 
-We used a subset of ~52k images of FFHQ to train our models. The dataset is [hosted on Kaggle](https://www.kaggle.com/datasets/arnaud58/flickrfaceshq-dataset-ffhq) and can be downloaded woth the following command
+We used a subset of ~52k images of FFHQ to train our models. The dataset is [hosted on Kaggle](https://www.kaggle.com/datasets/arnaud58/flickrfaceshq-dataset-ffhq) and can be downloaded and preprocessed with the following command
 
 ```sh
-kaggle datasets download arnaud58/flickrfaceshq-dataset-ffhq
+# See https://github.com/Kaggle/kaggle-api for instructions on
+# how to find your Kaggle credentials
+export KAGGLE_USERNAME=username
+export KAGGLE_KEY=kaggle-api-key
+
+sh src/scripts/download_ffhq.sh
 ```
 
 #### FaceForensics
@@ -112,9 +117,7 @@ Finally, the checkpoints should be in the same folder, and should follow the nam
 
 ## Running Experiments
 
-Assuming you have downloaded the `brain_toy.zip` data you can unpack it with `unzip brain_toy.zip -d data/toy`
-
-Run experiments (evaluation)
+Assuming you have downloaded the `brain_toy.zip` data you can unpack it with `unzip brain_toy.zip -d data/toy` and run experiments using the following commands:
 
 ```sh
 python docker/scripts/pred.py \
@@ -130,4 +133,4 @@ python docker/scripts/pred.py \
     -d "brain"
 ```
 
-For the real/deepfake examples refer to the notebook
+For the **real/deepfake experiments** refer to the notebook
