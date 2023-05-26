@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--pruned", type=bool, default=False, help="Use pruned dataset for faceforensics")
     # parser.add_argument("--cutoff", type=int, default=15, help="Cutoff for pruned dataset")
     parser.add_argument("--ld", type=float, default=7, help="sample-wise threshold value")
-    parser.add_argument("--thresholds", type=list, default=[5, 6, 7, 8, 9, 10], help="sample-wise threshold values for hyperparameter search")
+    parser.add_argument("--thresholds", nargs='+',type=int, default=[5, 6, 7, 8, 9, 10], help="sample-wise threshold values for hyperparameter search")
 
 
     args = parser.parse_args()
@@ -69,15 +69,6 @@ if __name__ == "__main__":
                 "ar_model": {"shape": (16, 16), "n_block": 4, "n_res_block": 4, "n_channels": 128}
                 }
 
-    # elif dataset == "faceforensics":
-    #     parameters = {"threshold_sample": lambda_,
-    #                 # "threshold_pixel_correct": 7,
-    #                 "checkpoint_features": 'src/DeepFake/checkpoints/faceforensics_vqvae_200.pt',
-    #                 "checkpoint_latent": 'src/DeepFake/checkpoints/faceforensics_ar_200.pt',
-    #                 "vq_net": {"d": 3, "n_channels": (16, 32, 64, 256), "code_size": 128, "n_res_block": 2},
-    #                 "ar_model": {"shape": (16, 16), "n_block": 4, "n_res_block": 4, "n_channels": 128}
-    #                 }
-
     vq_checkpoint = torch.load(
         parameters["checkpoint_features"], map_location=device)["model"]
     ar_checkpoint = torch.load(
@@ -113,38 +104,63 @@ if __name__ == "__main__":
         transforms.ToTensor(),
     ])
     if dataset == "ffhq":
-        ffhq_sets = {}
-        ffhq_loaders = {}
-        for dif in difficulties:
-            ffhq_sets[dif]= ImageFolder(os.path.join(data_dir, dataset, split, dif), transform=transform)
-            ffhq_loaders[dif] = DataLoader(ffhq_sets[dif], batch_size=64, shuffle=False)
-    
+        if split == "test":
+            ffhq_sets = {}
+            ffhq_loaders = {}
+            for dif in difficulties:
+                ffhq_sets[dif]= ImageFolder(os.path.join(data_dir, dataset, split, dif), transform=transform)
+                ffhq_loaders[dif] = DataLoader(ffhq_sets[dif], batch_size=64, shuffle=False)
+        elif split =="val":
+            ffhq_set = ImageFolder(os.path.join(data_dir, dataset, split), transform=transform)
+            ffhq_loader = DataLoader(ffhq_set, batch_size=64, shuffle=False)
     # For FaceForensics we load data differently, within the prediction loop, since we want to batch all images of the same video together
+    # We do have to remove some folders that do not contain images, as a result of the preprocessing
+    elif dataset == "faceforensics":
+        for fr in ['real', 'fake']:
+            n=0
+            for cl in os.listdir(os.path.join(data_dir, dataset, f'{split}{pr}', fr)):
+                # remove only empty dirs
+                try: 
+                    os.rmdir(os.path.join(data_dir, dataset, f'{split}{pr}', fr, cl)) 
+                    n+=1
+                except OSError: 
+                    continue
+            print(f"Removed {n} empty folders (videos) from {fr} set")
 
 
     # PREDICT
     print(f"Making predictions on {split} set of {dataset} with threshold(s) {thresholds}")
     output_dir = output_dir + f'/{dataset}'
-    predictions = defaultdict(lambda: defaultdict())
 
     if dataset == "ffhq":
+        predictions = {}
         for thr in thresholds:
             predictions[thr] = {}
             with torch.no_grad():
-                for dif in difficulties:
-                    print(f"Predicting {dif} images with threshold {thr}")
-                    predictions[thr][dif] = {'scores':[],'labels':[]}
-                    for batch, cl in tqdm(ffhq_loaders[dif]):
+                if split == "test":
+                    for dif in difficulties:
+                        print(f"Predicting {dif} images with threshold {thr}")
+                        predictions[thr][dif] = {'scores':[],'labels':[]}
+                        for batch, cl in tqdm(ffhq_loaders[dif]):
+                            loss = ar_model.loss(batch.to(device), reduction="none")["loss"].flatten(1)
+                            scores = torch.sum(loss * (loss > thr), 1).float()
+                            predictions[thr][dif]['scores'].append(scores.detach().cpu().numpy().tolist())
+                            predictions[thr][dif]['labels'].append(cl.detach().cpu().numpy().tolist())
+                elif split == "val":
+                    print(f"Predicting validation images with threshold {thr}")
+                    predictions[thr] = {'scores':[],'labels':[]}
+                    for batch, cl in tqdm(ffhq_loader):
                         loss = ar_model.loss(batch.to(device), reduction="none")["loss"].flatten(1)
                         scores = torch.sum(loss * (loss > thr), 1).float()
-                        predictions[thr][dif]['scores'].append(scores.detach().cpu().numpy().tolist())
-                        predictions[thr][dif]['labels'].append(cl.detach().cpu().numpy().tolist())
+                        predictions[thr]['scores'].append(scores.detach().cpu().numpy().tolist())
+                        predictions[thr]['labels'].append(cl.detach().cpu().numpy().tolist())
                         # assert len(predictions[thr][dif]['scores']) == len(predictions[thr][dif]['labels'])
         with open(os.path.join(output_dir, f"scores_{split}.json"), "w") as write_file:
             json.dump(predictions, write_file)
 
     elif dataset == "faceforensics":
-        input_dir = os.path.join(data_dir, dataset, f'{split}_set{pr}')
+        input_dir = os.path.join(data_dir, dataset, f'{split}{pr}')
+        predictions = defaultdict(lambda: defaultdict())
         for thr in thresholds:
             predictions[thr] = {'scores':[],'labels':[]}
             with torch.no_grad():

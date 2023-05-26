@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=3
 #SBATCH --time=04:00:00
 #SBATCH --mem=32000M
-#SBATCH --output=job_logs/predict_anomalies_FFHQ_slurm_%A.out
+#SBATCH --output=job_logs/tune_FFHQ_slurm_%A.out
 
 module purge
 module load 2022
@@ -15,4 +15,4 @@ module load Anaconda3/2022.05
 
 source activate vqvae
 
-python -u AnomalyDetection/src/DeepFake/pred.py -i data/testing_FFHQ -o data/output/FFHQ
+python -u AnomalyDetection/src/DeepFake/pred.py --data_dir data --cp_dir data/checkpoints -o data/output -dataset ffhq --split val --thresholds 6 7
