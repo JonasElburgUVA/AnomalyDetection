@@ -8,12 +8,18 @@ unzip flickrfaceshq-dataset-ffhq.zip -d data/ffhq
 
 # Split between validation and training
 mkdir -p data/ffhq/train/regular
-mkdir -p data/ffhq/validation/regular
+mkdir -p data/ffhq/holdout/regular
 mkdir -p data/ffhq/fake/
 
-# Test dataset directory
-mkdir -p data/ffhq/test/0
-mkdir -p data/ffhq/test/1
+# Test dataset directories
+mkdir -p data/ffhq/test/easy/0
+mkdir -p data/ffhq/test/easy/1
+
+mkdir -p data/ffhq/test/medium/0
+mkdir -p data/ffhq/test/medium/1
+
+mkdir -p data/ffhq/test/hard/0
+mkdir -p data/ffhq/test/hard/1
 
 python src/scripts/ffhq.py --dataset_path data/ffhq
 
@@ -41,20 +47,22 @@ mv data/ffhq/fake/real_and_fake_face/training_fake/hard_* data/ffhq/fake/hard
 rm -rf data/ffhq/fake/real_and_fake_face
 
 # Create the dataset for lambda tuning
-mkdir -p data/ffhq/lambda_tuning/0
-mkdir -p data/ffhq/lambda_tuning/1
+mkdir -p data/ffhq/val/0
+mkdir -p data/ffhq/val/1
 
 # Copy the first 252 images from the holdout directory to the lambda tuning real folder
-find data/ffhq/validation/regular/*.png -maxdepth 1 -type f | head -252 | xargs cp -t "data/ffhq/lambda_tuning/0"
+find data/ffhq/holdout/regular/*.png -maxdepth 1 -type f | head -252 | xargs cp -t "data/ffhq/val/0"
 # Copy 84 images per difficulty to the lambda tuning fake directory
-find data/ffhq/fake/easy/*.jpg -maxdepth 1 -type f | head -84 | xargs cp -t "data/ffhq/lambda_tuning/1"
-find data/ffhq/fake/medium/*.jpg -maxdepth 1 -type f | head -84 | xargs cp -t "data/ffhq/lambda_tuning/1"
-find data/ffhq/fake/hard/*.jpg -maxdepth 1 -type f | head -84 | xargs cp -t "data/ffhq/lambda_tuning/1"
+find data/ffhq/fake/easy/*.jpg -maxdepth 1 -type f | head -84 | xargs cp -t "data/ffhq/val/1"
+find data/ffhq/fake/medium/*.jpg -maxdepth 1 -type f | head -84 | xargs cp -t "data/ffhq/val/1"
+find data/ffhq/fake/hard/*.jpg -maxdepth 1 -type f | head -84 | xargs cp -t "data/ffhq/val/1"
 
 # Create the testing dataset using the holdout and fake images.
 # The fake images total 960 samples
-cp -r data/ffhq/fake/easy/*.jpg data/ffhq/test/1
-cp -r data/ffhq/fake/medium/*.jpg data/ffhq/test/1
-cp -r data/ffhq/fake/hard/*.jpg data/ffhq/test/1
+cp -r data/ffhq/fake/easy/*.jpg data/ffhq/test/easy/1
+cp -r data/ffhq/fake/medium/*.jpg data/ffhq/test/medium/1
+cp -r data/ffhq/fake/hard/*.jpg data/ffhq/test/hard/1
 
-find data/ffhq/validation/regular/*.png -maxdepth 1 -type f | head -960 | xargs cp -t "data/ffhq/test/0"
+find data/ffhq/holdout/regular/*.png -maxdepth 1 -type f | head -240 | xargs cp -t "data/ffhq/test/easy/0"
+find data/ffhq/holdout/regular/*.png -maxdepth 1 -type f | head -720 | tail -480 | xargs cp -t "data/ffhq/test/medium/0"
+find data/ffhq/holdout/regular/*.png -maxdepth 1 -type f | head -960 | tail -240 | xargs cp -t "data/ffhq/test/hard/0"
