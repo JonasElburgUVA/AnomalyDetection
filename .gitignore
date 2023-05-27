@@ -173,3 +173,8 @@ brain_toy.zip
 output/*
 checkpoints/*
 brain_toy/*
+*.out
+checkpoints_vqvae
+.vscode
+flickrfaceshq-dataset-ffhq.zip
+real-and-fake-face-detection.zip

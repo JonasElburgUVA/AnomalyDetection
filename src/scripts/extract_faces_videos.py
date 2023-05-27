@@ -28,6 +28,7 @@ parser.add_argument("--output_directory", type=str, help="The directory where ex
 parser.add_argument("--min_size", type=int, default=128, help="The minimum size length in pixels")
 parser.add_argument("--min_confidence", type=int, default=0.995, help="The minimum confidence for a face to be saved")
 parser.add_argument("--padding", type=int, default=16, help="Padding added to frames to ensure cropped images are squares")
+parser.add_argument("--extract_every", type=int, default=4, help="Extract faces every x frames")
 
 args = parser.parse_args()
 
@@ -46,7 +47,7 @@ for video_path in tqdm(videos):
     frames = [
         Image.fromarray(
             cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        ) for frame in video
+        ) for f, frame in enumerate(video) if f % args.extract_every == 0
     ]
 
     video_folder = os.path.join(args.output_directory, video_id)
@@ -69,6 +70,10 @@ for video_path in tqdm(videos):
         )
 
         array_frame = np.array(padded_frame)
+
+        if boxes is None:
+            # Skip frames without boxes
+            continue
 
         for face_id, (box, confidence) in enumerate(zip(boxes, confidences)):
             if confidence < args.min_confidence:
