@@ -14,6 +14,8 @@ conda activate anomaly-vqvae
 sh setup_env.sh
 ```
 
+The training scrips are set up to log metrics to [wandb](https://wandb.ai/site). The command line tool is installed by default, and if you want to log metrics simply run `wandb login` and provide your API key.
+
 ### Datasets
 
 #### MOOD (Original Paper)
@@ -117,6 +119,31 @@ output
 ```
 
 Finally, the checkpoints should be in the same folder, and should follow the naming convention {dataset}_{model}.pt. Here dataset can be either 'ffhq' or 'faceforensics', and model can be either 'vqvae' or 'ar'.
+
+## Model Training
+
+We provide scripts to train the VQ-VAE and AR models both on FFHQ and FaceForensics. For FFHQ you can train the models as follows
+
+```sh
+# You can optionally resume training from a checkpoint by providing
+# a path using the --vqvae_checkpoint argument.
+
+# This script trains the VQ-VAE model
+python src/DeepFake/train.py \
+    --training_directory "data/ffhq/train" \
+    --holdout_directory "data/ffhq/holdout" \
+    --epochs 30 
+
+# This script traing the AR model
+# Provide the --ar_checkpoint argument to resume training
+python src/DeepFake/train_ar.py \
+    --training_directory "data/ffhq/train" \
+    --holdout_directory "data/ffhq/holdout" \
+    --vqvae_checkpoint "checkpoints/ffhq/vqvae.pt" \
+    --epochs 30
+```
+
+The scripts for FaceForensics follow a similar usage pattern, and they are respectively named `faceforensics_train.py` and `faceforensics_train_ar.py`.
 
 ## Running Experiments
 

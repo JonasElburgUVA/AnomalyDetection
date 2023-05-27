@@ -1,12 +1,12 @@
 import torch
 import utils
 import nets_LV
+import argparse
 import torch.optim as optim
 import torchvision.transforms as transforms
 
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
-import argparse
 
 
 parser = argparse.ArgumentParser(
@@ -14,20 +14,40 @@ parser = argparse.ArgumentParser(
     description="This program runs the training for the AR model"
 )
 
-parser.add_argument("--training_directory", type=str,
-                    help="The directory with the training images.")
-parser.add_argument("--holdout_directory", type=str,
-                    help="The directory where the holdout set is located for training.")
-parser.add_argument("--vqvae_checkpoint", type=str, required=True,
-                    help="When present, we will continue training, otherwise train from scratch.")
-parser.add_argument("--ar_checkpoint", type=str, default=None,
-                    help="When present, we will continue training, otherwise train from scratch.")
-parser.add_argument('--epochs', type=int, default=30,
-                    help="Number of epochs to train for.")
+parser.add_argument(
+    "--training_directory",
+    type=str,
+    help="The directory with the training images."
+)
+
+parser.add_argument(
+    "--holdout_directory",
+    type=str,
+    help="The directory where the holdout set is located for training."
+)
+
+parser.add_argument(
+    "--vqvae_checkpoint",
+    type=str,
+    required=True,
+    help="The checkpoint for the VQ-VAE model"
+)
+
+parser.add_argument(
+    "--ar_checkpoint",
+    type=str,
+    default=None,
+    help="When present, we will continue training, otherwise train from scratch."
+)
+
+parser.add_argument(
+    "--epochs",
+    type=int,
+    default=30,
+    help="Number of epochs to train for."
+)
 
 args = parser.parse_args()
-
-
 device = torch.device("cuda")
 
 transform_pipeline = transforms.Compose([
@@ -38,11 +58,8 @@ transform_pipeline = transforms.Compose([
     transforms.ToTensor()
 ])
 
-train_dir = args.training_directory
-holdout_dir = args.holdout_directory
-
-train_dataset = ImageFolder(train_dir, transform=transform_pipeline)
-val_dataset = ImageFolder(holdout_dir, transform=transform_pipeline)
+train_dataset = ImageFolder(args.training_directory, transform=transform_pipeline)
+val_dataset = ImageFolder(args.holdout_directory, transform=transform_pipeline)
 
 train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=True)
@@ -73,8 +90,10 @@ tracker = utils.train_tracker()
 
 if args.ar_checkpoint is not None:
     ar_checkpoint = torch.load(args.ar_checkpoint)
-    ar_model.load_state_dict(ar_checkpoint['model'])
-    optimizer.load_state_dict(ar_checkpoint['optimizer'])
+
+    ar_model.load_state_dict(ar_checkpoint["model"])
+    optimizer.load_state_dict(ar_checkpoint["optimizer"])
+    tracker.load_state_dict(ar_checkpoint["tracker"])
 
 
 wandb_config = {
