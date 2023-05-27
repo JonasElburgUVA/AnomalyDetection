@@ -1,6 +1,7 @@
 import torch
 import utils
 import nets_LV
+import argparse
 import torch.optim as optim
 import torchvision.transforms as transforms
 
@@ -8,9 +9,40 @@ from torch.utils.data import DataLoader
 from faceforensics_dataloader import FaceForensicsDataset, collate_fn
 
 
-device = torch.device("cuda")
+parser = argparse.ArgumentParser(
+    prog="Training VQ-VAE model (FaceForensics)",
+    description="This program runs the training for the VQ-VAE model on FaceForensics"
+)
 
-data_dir = "/project/gpuuva022/shared/face_forensics_extracted/original_faces"
+parser.add_argument(
+    "--data_directory",
+    type=str,
+    help="The dataset directory, containing train and test folders"
+)
+
+parser.add_argument(
+    "--epochs",
+    type=int,
+    default=200,
+    help="Number of epochs to train for."
+)
+
+parser.add_argument(
+    "--vqvae_checkpoint",
+    type=str,
+    required=True,
+    help="The checkpoint for the VQ-VAE model"
+)
+
+parser.add_argument(
+    "--ar_checkpoint",
+    type=str,
+    default=None,
+    help="When present, we will continue training, otherwise train from scratch."
+)
+
+device = torch.device("cuda")
+args = parser.parse_args()
 
 train_transform_pipeline = transforms.Compose([
     transforms.Resize((128, 128)),
@@ -26,14 +58,14 @@ val_transform_pipeline = transforms.Compose([
 ])
 
 train_dataset = FaceForensicsDataset(
-    data_dir,
+    args.data_directory,
     split="train",
     sample_number=8,
     transform=train_transform_pipeline
 )
 
 val_dataset = FaceForensicsDataset(
-    data_dir,
+    args.data_directory,
     split="test",
     sample_number=16, # 2240 validation samples
     transform=val_transform_pipeline
@@ -42,9 +74,7 @@ val_dataset = FaceForensicsDataset(
 train_dataloader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
 
-vq_checkpoint = torch.load(
-    "/home/lcur1720/anomaly-latest/AnomalyDetection/checkpoints_vqvae/faceforensics_200.pt"
-)
+vq_checkpoint = torch.load(args.vqvae_checkpoint)
 
 vq_model = nets_LV.VQVAE(
     d=3,
@@ -68,10 +98,17 @@ ar_model = nets_LV.VQLatentSNAIL(
 optimizer = optim.Adam(ar_model.parameters(), lr=1e-4)
 tracker = utils.train_tracker()
 
+if args.ar_checkpoint is not None:
+    ar_checkpoint = torch.load(args.ar_checkpoint)
+
+    ar_model.load_state_dict(ar_checkpoint["model"])
+    optimizer.load_state_dict(ar_checkpoint["optimizer"])
+    tracker.load_state_dict(ar_checkpoint["tracker"])
+
 wandb_config = {
     "architecture": "AR",
     "dataset": "FaceForensics",
-    "epochs": 200,
+    "epochs": args.epochs,
 }
 
 utils.train_epochs(
@@ -80,7 +117,7 @@ utils.train_epochs(
     tracker=tracker,
     train_loader=train_dataloader,
     test_loader=val_dataloader,
-    epochs=200,
+    epochs=args.epochs,
     device=device,
     config=wandb_config,
     chpt="faceforensics_ar",

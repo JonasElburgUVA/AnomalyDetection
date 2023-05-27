@@ -1,6 +1,7 @@
 import torch
 import utils
 import nets_LV
+import argparse
 import torch.optim as optim
 import torchvision.transforms as transforms
 
@@ -8,10 +9,33 @@ from torch.utils.data import DataLoader
 from faceforensics_dataloader import FaceForensicsDataset, collate_fn
 
 
+parser = argparse.ArgumentParser(
+    prog="Training VQ-VAE model (FaceForensics)",
+    description="This program runs the training for the VQ-VAE model on FaceForensics"
+)
+
+parser.add_argument(
+    "--data_directory",
+    type=str,
+    help="The dataset directory, containing train and test folders"
+)
+
+parser.add_argument(
+    "--epochs",
+    type=int,
+    default=200,
+    help="Number of epochs to train for."
+)
+
+parser.add_argument(
+    "--vqvae_checkpoint",
+    type=str,
+    default=None,
+    help="When present, we will continue training, otherwise train from scratch."
+)
+
 device = torch.device("cuda")
-continue_from_checkpoint = False
-data_dir = "/project/gpuuva022/shared/face_forensics_extracted/original_faces"
-checkpoint_path = "/home/lcur1720/anomaly-latest/AnomalyDetection/checkpoints/faceforensics_020.pt"
+args = parser.parse_args()
 
 train_transform_pipeline = transforms.Compose([
     transforms.Resize((128, 128)),
@@ -27,14 +51,14 @@ val_transform_pipeline = transforms.Compose([
 ])
 
 train_dataset = FaceForensicsDataset(
-    data_dir,
+    args.data_directory,
     split="train",
     sample_number=8,
     transform=train_transform_pipeline
 )
 
 val_dataset = FaceForensicsDataset(
-    data_dir,
+    args.data_directory,
     split="test",
     sample_number=16, # 2240 validation samples
     transform=val_transform_pipeline
@@ -54,15 +78,17 @@ model = nets_LV.VQVAE(
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 tracker = utils.train_tracker()
 
-if continue_from_checkpoint:
-    checkpoint = torch.load(checkpoint_path)
+if args.vqvae_checkpoint is not None:
+    checkpoint = torch.load(args.vqvae_checkpoint)
+
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
+    tracker.load_state_dict(checkpoint['tracker'])
 
 wandb_config = {
     "architecture": "VQ-VAE",
     "dataset": "FaceForensics",
-    "epochs": 200,
+    "epochs": args.epochs,
 }
 
 utils.train_epochs(
@@ -71,7 +97,7 @@ utils.train_epochs(
     tracker=tracker,
     train_loader=train_dataloader,
     test_loader=val_dataloader,
-    epochs=200,
+    epochs=args.epochs,
     device=device,
     config=wandb_config,
     chpt="faceforensics",
